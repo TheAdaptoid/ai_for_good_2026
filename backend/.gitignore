@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# HuggingFace model cache (covered by the .cache rule above; labeled for clarity)
+/.cache/huggingface/

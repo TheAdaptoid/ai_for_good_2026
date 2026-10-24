@@ -478,8 +478,8 @@ Expected: four-condition synthetic execution passes without weights/network; dat
 **Consumes:** Integrated classifier, temporal sampler, and notebook.
 **Produces:** Verified backend-local proof of concept, clear launch/setup instructions, and factual experiment status.
 
-- [ ] **1. Review integration against the frozen APIs.** Check imports/cache paths do not cross backend boundaries; check notebook/README agree on argument names and fields. Confirm the old notebooks and `get_clip()` implementation remain untouched. The current Activity schema enforces `end_frame = start_frame + 31`; this reinforces why no sampled-clip writes or schema changes belong in this work.
-- [ ] **2. Write concise backend setup and usage instructions.** Replace README claims that the backend never performs inference; keep ingestion behavior descriptions accurate. Document:
+- [x] **1. Review integration against the frozen APIs.** Check imports/cache paths do not cross backend boundaries; check notebook/README agree on argument names and fields. Confirm the old notebooks and `get_clip()` implementation remain untouched. The current Activity schema enforces `end_frame = start_frame + 31`; this reinforces why no sampled-clip writes or schema changes belong in this work.
+- [x] **2. Write concise backend setup and usage instructions.** Replace README claims that the backend never performs inference; keep ingestion behavior descriptions accurate. Document:
 
 ```bash
 uv sync --locked
@@ -504,7 +504,7 @@ sampled_result = classifier.classify(sampled.frames, ["Dancing", "Walking", "Sin
 
 Explain editable reference labels/quality summaries, PTS origin, nearest-frame and boundary behavior, backend cache, initial download versus offline inference, CPU selection, finite/token validation, CUDA memory errors, and sequential-decoding costs. State that direct model paths must contain the pinned assets. No measured dataset accuracy claim unless manually labeled comparisons were actually performed.
 
-- [ ] **3. Run the integrated automated checks.**
+- [x] **3. Run the integrated automated checks.**
 
 ```bash
 uv lock --check
@@ -513,11 +513,11 @@ uv run --locked pytest -q
 
 Expected: dependency lock consistent; full synthetic suite passes, including notebook integration and legacy regression tests. If failure occurs, diagnose before editing and rerun the affected tests; repeat the full suite only after a relevant fix.
 
-- [ ] **4. Acquire public weights explicitly into the backend cache and run a small real smoke.** The downloader is the only model-acquisition step. Do not use the sibling cache as a runtime shortcut. Run CUDA and CPU model checks sequentially, releasing the GPU classifier before constructing another instance. Use a small synthetic RGB clip to prove CPU support; use one actual available detection and four conditions to exercise the target workflow. Record actual device/dtype, input/output shapes, finite ranked scores, and timings. Do not expand into full-dataset processing or save derived result files.
+- [x] **4. Acquire public weights explicitly into the backend cache and run a small real smoke.** The downloader is the only model-acquisition step. Do not use the sibling cache as a runtime shortcut. Run CUDA and CPU model checks sequentially, releasing the GPU classifier before constructing another instance. Use a small synthetic RGB clip to prove CPU support; use one actual available detection and four conditions to exercise the target workflow. Record actual device/dtype, input/output shapes, finite ranked scores, and timings. Do not expand into full-dataset processing or save derived result files.
 
 If dependencies/assets cannot be acquired, report that blocker rather than claiming real inference was validated. If a 15-second window crosses a source boundary, retain and report repeats; do not silently select a different window.
 
-- [ ] **5. Execute the new notebook in memory, inspect comparisons, and keep saved source clear.** Run through the backend environment:
+- [x] **5. Execute the new notebook in memory, inspect comparisons, and keep saved source clear.** Run through the backend environment:
 
 ```bash
 uv run --locked python -c "from pathlib import Path; import nbformat; from nbclient import NotebookClient; p=Path('notebooks/activity_classification.ipynb'); nb=nbformat.read(p, as_version=4); NotebookClient(nb, timeout=600, kernel_name='python3', resources={'metadata': {'path': str(Path.cwd())}}).execute(); print('Notebook executed in memory; saved source unchanged')"
@@ -533,7 +533,7 @@ git status --short
 
 The source was never overwritten by execution, so no output-clearing operation should touch the user's existing notebooks. Check that weights, videos, database files, and identifying outputs are absent from the intended diff.
 
-- [ ] **6. Final handoff.** Summarize changed backend paths, launch commands, tests actually run, real smoke status, and any observed quality limitations. Mark completed tasks only after verification. Do not commit, batch infer, or write Activity records.
+- [x] **6. Final handoff.** Summarize changed backend paths, launch commands, tests actually run, real smoke status, and any observed quality limitations. Mark completed tasks only after verification. Do not commit, batch infer, or write Activity records.
 
 ## Plan self-review checklist
 

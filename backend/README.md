@@ -1,11 +1,14 @@
 # backend
 
-Local SQLite ingestion and video retrieval for the THIS IS ME face-detection CSV.
-Ingestion builds a six-table analysis database (schema in `db/schema.sql`). The
-`video_retrieval` package reads original video frames, face crops, and 32-frame
-clips into memory. Neither component runs models or performs inference.
-Retrieval uses PyAV and NumPy; ingestion uses the standard library. Use `uv` to
-manage dependencies, pytest, and the Jupyter/Matplotlib validation environment.
+Local SQLite ingestion, video retrieval, and activity classification for the
+THIS IS ME face-detection CSV. Ingestion builds a six-table analysis database
+(schema in `db/schema.sql`). The `video_retrieval` package reads original video
+frames, face crops, 32-frame clips, and variable-rate temporal samples into
+memory. The `activity_classification` package additionally runs zero-shot X-CLIP
+inference locally on those RGB frames; no component writes predictions back to
+the database. Retrieval uses PyAV and NumPy; ingestion uses the standard
+library; classification uses PyTorch and Transformers. Use `uv` to manage
+dependencies, pytest, and the Jupyter/Matplotlib validation environment.
 
 ## System prerequisites
 
@@ -100,12 +103,73 @@ save or export displayed identifying images. The repository notebook contains no
 image outputs. Automated tests synthesize their own originals and temporary
 databases; `uv run pytest -q` does not require the private dataset.
 
+## Activity classification (X-CLIP)
+
+Zero-shot activity ranking of in-memory RGB clips with the pinned checkpoint
+`microsoft/xclip-base-patch16-zero-shot` at revision
+`6746d6a5202bf24300cd9bf36f457f174483d41b`. All commands run from `backend/`,
+and `backend/` has no sibling-project dependencies: its environment, cache,
+downloader, notebook, and tests work standalone.
+
+```bash
+uv sync --locked
+uv run --locked python -m activity_classification.download_model
+uv run --locked jupyter lab notebooks/activity_classification.ipynb
+```
+
+`download_model` is the only acquisition step: the first run fetches
+`model.safetensors` and config/tokenizer assets (~600 MB) into the backend cache
+`backend/.cache/huggingface/hub`; afterwards everything, including the notebook,
+runs from only those local files, never the network, a sibling project, or a
+global cache.
+
+```python
+from activity_classification import XCLIPClassifier
+from video_retrieval import VideoRetriever
+
+retriever = VideoRetriever()  # Or an explicit existing database path.
+classifier = XCLIPClassifier(device="auto")
+clip = retriever.get_clip(detection_id)
+result = classifier.classify(clip, ["Dancing", "Walking", "Singing"])
+for prediction in result.predictions:
+    print(prediction.label, prediction.score, prediction.logit)
+
+sampled = retriever.get_temporal_clip(detection_id, interval_seconds=10.0)
+sampled_result = classifier.classify(sampled.frames, ["Dancing", "Walking", "Singing"])
+```
+
+- **Reference labels & quality summaries.** The notebook's `REFERENCE_LABELS` is
+  a manual, editable mapping (detection -> exact candidate label). Accuracy is
+  computed only over manually labeled detections whose four conditions all
+  succeeded, with the denominator and exclusions disclosed; softmax scores are
+  relative to the candidate list, so larger values do not establish quality. No
+  dataset accuracy has been measured and none is claimed.
+- **Temporal sampling.** Targets derive from presentation timestamps relative to
+  the first decoded frame's PTS, centered on the detection's stored
+  `source_time_seconds`. Each target picks the nearest frame (ties take the
+  earlier frame); targets past the first/last frame repeat that frame as
+  left/right padding. `unique_frame_count`, `*_padding_count`, and
+  `source_frame_indices` expose repeats and bounds; the stored center is never
+  rewritten. Windows decode sequentially to end-of-stream to establish true
+  boundaries, so late windows in long originals cost linear decoding time, with
+  no cache or approximate seeking.
+- **Devices.** `device="auto"` selects CUDA (FP16) when available, otherwise CPU
+  (FP32); pass `device="cpu"` explicitly. Results carry device/dtype and peak
+  CUDA memory. CUDA `OutOfMemoryError` becomes an actionable `RuntimeError`
+  with no automatic CPU retry.
+- **Validation.** Inputs must be uint8 `(T, H, W, 3)` RGB; prompts may not be
+  blank, duplicated, exceed the checkpoint's 77-token text limit, or omit
+  required descriptions; logits/scores are checked for finiteness; frames are
+  subsampled (nearest, stable) to the checkpoint's 32.
+- **Direct model paths.** `model_path=<dir>` must contain exactly the pinned
+  revision's assets (`config.json`, tokenizer, `model.safetensors`); it is not a
+  way to relabel arbitrary checkpoints.
 ## Database
 
 Six tables: `Video` (one row per probed video file), `Frame`, `Person`,
 `FaceDetection` (bbox and detection score), plus `Activity` and `Engagement`,
-which are **future outputs**: the pipeline performs no inference and these tables
-stay empty.
+which stay empty: classification runs in memory only and nothing in this backend
+writes predictions back.
 
 `scripts/init_db.py` creates the schema idempotently from `db/schema.sql`
 (`CREATE TABLE IF NOT EXISTS`). It is **not** a schema migration: an existing
