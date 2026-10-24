@@ -1,7 +1,8 @@
 docs/superpowers/*
 
 # Local datasets, videos, and generated results
-data/
+data/videos/
+data/csv/
 datasets/
 sponsor_videos/
 videos/
