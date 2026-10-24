@@ -137,6 +137,24 @@ current working directory.
   as `full_frame_path`/`face_crop_path` are not read, and **no images, crops,
   models, or extraction ever happen**.
 
+## Replacing identity results
+
+`scripts/replace_identity.py` loads an identity run's schema-shaped tables
+(`VIDEO.csv`, `FRAME.csv`, `PERSON.csv`, `FACE_DETECTION.csv`, as written by the
+identity pipeline's `Database/` folder) in one transaction:
+
+```bash
+uv run python scripts/replace_identity.py --tables <run>/Database --db ../data/analysis.local.sqlite
+```
+
+- `Video` is kept. `VIDEO.csv` is only used to map its `video_id` values to the
+  existing rows by exact `filename`; an unknown filename aborts before any write.
+- `Activity`, `Engagement`, `FaceDetection`, `Frame`, and `Person` are cleared, then
+  the new rows are inserted with **their `detection_id` values preserved**, because
+  downstream activity/engagement handoffs join on them.
+- Foreign keys, `PRAGMA integrity_check`, and row counts are verified before commit;
+  any failure rolls back and leaves the database unchanged (exit code `1`).
+
 ## Exit codes and output
 
 - `0` — every input file committed.
