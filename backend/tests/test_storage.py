@@ -327,3 +327,23 @@ def test_must_exist_never_creates(tmp_path):
     with pytest.raises(sqlite3.OperationalError):
         connect_database(missing, must_exist=True)
     assert not missing.exists()
+
+
+def test_read_only_connection_reads_but_rejects_writes(tmp_path):
+    database = tmp_path / "read_only.sqlite"
+    initialize_database(database)
+    connection = connect_database(database, read_only=True)
+    try:
+        assert table_counts(connection) == dict.fromkeys(TABLES, 0)
+        assert connection.execute("PRAGMA foreign_keys").fetchone() == (1,)
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            connection.execute("INSERT INTO Person VALUES ('blocked')")
+    finally:
+        connection.close()
+
+
+def test_read_only_connection_never_creates_database(tmp_path):
+    missing = tmp_path / "missing.sqlite"
+    with pytest.raises(sqlite3.OperationalError):
+        connect_database(missing, read_only=True)
+    assert not missing.exists()

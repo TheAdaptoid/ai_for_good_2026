@@ -5,15 +5,18 @@ from analysis_db.contracts import DataError, DetectionRow, TABLES, VideoMetadata
 from analysis_db.paths import SCHEMA_PATH
 
 
-def connect_database(path: Path, *, must_exist: bool = False) -> sqlite3.Connection:
+def connect_database(path: Path, *, must_exist: bool = False,
+                     read_only: bool = False) -> sqlite3.Connection:
     """Open a connection with foreign keys ON and explicit transaction control.
 
     ``must_exist=True`` uses a ``mode=rw`` URI so a missing file raises instead
-    of being created.
+    of being created. ``read_only=True`` uses ``mode=ro`` and rejects writes;
+    it also requires an existing database.
     """
     resolved = Path(path).resolve()
-    if must_exist:
-        uri = resolved.as_uri() + "?mode=rw"
+    if must_exist or read_only:
+        mode = "ro" if read_only else "rw"
+        uri = resolved.as_uri() + f"?mode={mode}"
         connection = sqlite3.connect(uri, uri=True, isolation_level=None)
     else:
         connection = sqlite3.connect(resolved, isolation_level=None)
