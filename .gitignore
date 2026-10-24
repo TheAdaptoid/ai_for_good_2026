@@ -1,0 +1,25 @@
+docs/superpowers/*
+
+# Local datasets, videos, and generated results
+data/
+datasets/
+sponsor_videos/
+videos/
+outputs/
+results/
+*.mp4
+*.MP4
+*.mov
+*.MOV
+*.avi
+*.AVI
+*.mkv
+*.MKV
+*.webm
+*.WEBM
+*.m4v
+*.M4V
+*.mpeg
+*.MPEG
+*.mpg
+*.MPG
