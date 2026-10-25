@@ -352,3 +352,48 @@ Playwright traces, videos, and failure screenshots are disabled. Deliberate scre
 AI coding assistants must not open screenshots, traces, or frames that show participant footage
 (Constitution I). This was violated once on 2026-10-24, when an unmasked e2e screenshot was
 viewed. The artifact was deleted and the masking was added.
+
+---
+
+## D024 — Clip Pipeline Split: Infrastructure Now, Generation Later
+
+Decided by the human on 2026-10-25.
+
+The `Activity` table holds no predictions: X-CLIP has never been run over the footage. Spec 004
+therefore builds only the infrastructure:
+
+- import format and validation
+- protected importer
+- ImportRun audit
+- stage Protocols, signal loader, and deterministic builder
+- service and app support for clips and review priority
+
+It runs no model, generates no clips or annotations from real signals, and never populates the
+real database. Tests use synthetic fixtures only. End-to-end tests import a synthetic file into a
+disposable database copy.
+
+The later generation feature implements the stages:
+
+- clip segmentation (D017 baseline)
+- activity inference (X-CLIP, local)
+- visible-affect aggregation
+- review priority (the `1.1^N × positive-affect` hypothesis and its per-participant vs
+  per-detection averaging choice remain open for that feature)
+
+---
+
+## D025 — Pipeline Import Contract
+
+- File format `tpa-review-import/1` (`specs/004-clip-annotation-pipeline/contracts/import-format.md`).
+  Videos are referenced by filename, labels by `(name, category)`, and positions in frames.
+- One file is one all-or-nothing import, across all of its videos.
+- Imported annotations are always `source = AI`, `review_status = UNREVIEWED`. Spec 001
+  protection and no-delete rules apply unchanged.
+- Builder keys are `"{pipeline}:{kind}:{sha256(content)[:20]}"`. The content is video, span,
+  members, label, and person. The pipeline version is excluded, so newer versions update
+  unreviewed rows in place, and a changed clip boundary yields a new record while the old one is
+  retained.
+- A span-less clip-level annotation takes its clip's span, or the stored span when the clip is
+  protected.
+- Each successful import appends an `ImportRun` audit row. ImportRun is append-only, enforced by
+  triggers.

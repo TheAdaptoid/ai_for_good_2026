@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { api, exportUrl, REVIEW_STATUSES, type VideoSummary } from '../api/client'
+import { LatestImport, ReviewQueue } from '../components/ReviewQueue'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { formatTime } from '../format'
 import { useResource } from '../hooks'
@@ -48,6 +49,7 @@ export function Dashboard() {
         <Stat label="Annotations" value={String(annotationTotal)} />
       </section>
 
+      <LatestImport />
       {annotationTotal === 0 && clipTotal === 0 && (
         <p className="notice">
           No review clips or suggested annotations yet. They appear here once the clip and
@@ -56,6 +58,9 @@ export function Dashboard() {
         </p>
       )}
 
+      <ReviewQueue videos={list} />
+
+      <h2 className="section-title">Videos</h2>
       {list.length === 0 ? (
         <Empty>No processed videos in the database.</Empty>
       ) : (

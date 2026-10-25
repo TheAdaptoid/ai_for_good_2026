@@ -200,6 +200,8 @@ class ImportResult:
     clips_inserted: int = 0
     clips_updated: int = 0
     clips_skipped_protected: int = 0
+    unchanged: int = 0
+    clips_unchanged: int = 0
 
 
 STAFF_TABLES = ("StaffAccount", "StaffSession")
@@ -263,3 +265,26 @@ class ParticipantVideo:
 class ParticipantDetail:
     person_id: str
     videos: tuple[ParticipantVideo, ...]
+
+
+IMPORT_TABLES = ("ImportRun",)
+
+
+@dataclass(frozen=True)
+class ModelRef:
+    name: str
+    revision: str | None
+
+
+@dataclass(frozen=True)
+class ImportRun:
+    """Audit record of one successful pipeline-output import."""
+    run_id: int
+    pipeline_name: str
+    pipeline_version: str
+    models: tuple[ModelRef, ...]
+    generated_at: str | None
+    imported_at: str
+    source_name: str
+    input_sha256: str
+    counts: ImportResult

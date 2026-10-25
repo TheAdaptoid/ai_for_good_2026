@@ -89,7 +89,7 @@ def test_every_operation_requires_session(anon):
     checked = 0
     for path, operations in schema["paths"].items():
         concrete = path.replace("{video_id}", "1").replace("{annotation_id}", "1") \
-                       .replace("{person_id}", "Person_0001")
+                       .replace("{person_id}", "Person_0001").replace("{clip_id}", "1")
         for method in operations:
             if (path, method) in public:
                 continue
@@ -278,6 +278,29 @@ def test_clips_by_priority(client, db):
     assert ordered[0]["priority_score"] == 2.07 and "confidence" not in ordered[0]
     assert [c["clip_id"] for c in client.get("/api/clips?person_id=Person_0002").json()] == [3]
     assert client.get("/api/clips?order=bogus").status_code == 422
+
+
+def test_clip_detail_limit_and_imports(client, db):
+    import hashlib
+    import json as _json
+    from analysis_db.pipeline_import import import_file, parse_import_file
+    text = _json.dumps({"format": "tpa-review-import/1",
+                        "pipeline": {"name": "synthetic-fixture", "version": "1"},
+                        "videos": [{"filename": "one.mp4", "clips": [
+                            {"key": f"k{i}", "start_frame": i, "end_frame": i + 5,
+                             "participants": ["Person_0001"],
+                             "priority": {"score": float(i), "method": "m@1"}} for i in range(3)]}]})
+    assert client.get("/api/imports").json() == []
+    import_file(db, parse_import_file(text), source_name="f.json",
+                sha256=hashlib.sha256(text.encode()).hexdigest())
+    top = client.get("/api/clips?order=priority&limit=2").json()
+    assert [c["priority_score"] for c in top] == [2.0, 1.0]
+    one = client.get(f"/api/clips/{top[0]['clip_id']}").json()
+    assert one["person_ids"] == ["Person_0001"] and one["priority_method"] == "m@1"
+    assert client.get("/api/clips/9999").status_code == 404
+    assert client.get("/api/clips?limit=0").status_code == 422
+    (run,) = client.get("/api/imports").json()
+    assert run["pipeline_name"] == "synthetic-fixture" and run["counts"]["clips_inserted"] == 3
 
 
 def test_exports(client, db, insert_ai_annotation):

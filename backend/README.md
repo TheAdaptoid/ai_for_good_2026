@@ -200,6 +200,27 @@ feature) runs. Every list then returns an empty array.
 On macOS, `uv sync` installs the CPU/MPS build of the pinned `torch==2.8.0`. Linux and Windows
 keep the CUDA 12.8 build.
 
+## Importing pipeline output (Spec 004)
+
+The service shows review clips and AI annotations only after a pipeline's output file has been
+imported. Nothing in this repository generates that output yet. Clip segmentation, activity
+inference, and affect aggregation are a later feature.
+
+```bash
+uv run python scripts/import_pipeline_output.py --input <run>.json   # --db defaults to the working DB
+```
+
+- Format `tpa-review-import/1`: see `specs/004-clip-annotation-pipeline/contracts/import-format.md`.
+  Videos are referenced by filename and labels by name and category. Positions are frames.
+- The whole file is validated first and stored in one transaction, or not at all. Imported
+  annotations are `source = AI`, `review_status = UNREVIEWED`. Re-imports upsert by key.
+  Reviewed annotations, and clips holding them, are never changed. Nothing is ever deleted.
+- Each successful import is recorded as an `ImportRun` (pipeline, version, models, file hash,
+  counts). It is visible on the dashboard and at `GET /api/imports`.
+- Future generation stages implement the Protocols in `pipeline/stages.py`. They read signals
+  with `pipeline.signals.load_video_signals` and turn proposals into a file with
+  `pipeline.builder.build_import_file`, which derives deterministic keys.
+
 ## Database
 
 Six ingestion tables: `Video` (one row per probed video file), `Frame`, `Person`,

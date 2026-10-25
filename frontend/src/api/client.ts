@@ -12,6 +12,7 @@ export type Annotation = Schemas['Annotation']
 export type ReviewEvent = Schemas['ReviewEvent']
 export type ReviewResult = Schemas['ReviewResult']
 export type ReviewClip = Schemas['ReviewClip']
+export type ImportRun = Schemas['ImportRun']
 export type Label = Schemas['Label']
 export type ReviewStatus = Schemas['ReviewStatus']
 export type CreateAnnotationRequest = Schemas['CreateAnnotationRequest']
@@ -75,6 +76,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 export interface AnnotationQuery extends Query {
   video_id?: number
   person_id?: string
+  clip_id?: number
   include_rejected?: boolean
 }
 
@@ -92,8 +94,10 @@ export const api = {
   annotations: (query: AnnotationQuery) => request<Annotation[]>('GET', withQuery('/annotations', query)),
   annotation: (id: number) => request<Annotation>('GET', `/annotations/${id}`),
   history: (id: number) => request<ReviewEvent[]>('GET', `/annotations/${id}/history`),
-  clips: (query: { video_id?: number; person_id?: string; order?: 'time' | 'priority' }) =>
+  clips: (query: { video_id?: number; person_id?: string; order?: 'time' | 'priority'; limit?: number }) =>
     request<ReviewClip[]>('GET', withQuery('/clips', query)),
+  clip: (id: number) => request<ReviewClip>('GET', `/clips/${id}`),
+  imports: () => request<ImportRun[]>('GET', '/imports'),
   labels: () => request<Label[]>('GET', '/labels?include_inactive=true'),
   create: (body: CreateAnnotationRequest) => request<ReviewResult>('POST', '/annotations', body),
   review: (id: number, action: ReviewAction, note: string | null) =>

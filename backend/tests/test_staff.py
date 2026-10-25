@@ -19,7 +19,7 @@ def test_init_adds_empty_staff_tables_idempotently(tmp_path):
     initialize_database(db)
     initialize_database(db)
     with closing(connect_database(db, must_exist=True)) as connection:
-        assert staff_table_counts(connection) == {"StaffAccount": 0, "StaffSession": 0}
+        assert staff_table_counts(connection) == {"StaffAccount": 0, "StaffSession": 0, "ImportRun": 0}
 
 
 def test_password_is_only_stored_as_argon2_hash(review_db):

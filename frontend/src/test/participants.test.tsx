@@ -29,6 +29,8 @@ describe('participant view', () => {
       'GET /api/videos/8': { ...VIDEO, video_id: 8, title: 'Final show' },
       'GET /api/videos/8/participants': [{ ...PARTICIPANTS[0], intervals: [{ start_seconds: 5, end_seconds: 6, detection_count: 2 }] }],
       'GET /api/annotations': [annotation()],
+      'GET /api/clips': [{ clip_id: 3, video_id: 7, start_frame: 240, end_frame: 480, start_seconds: 10,
+        end_seconds: 20, person_ids: ['Person_0001'], priority_score: 1.5, priority_method: 'm@1', created_at: 'x' }],
     })
     renderAt('/participants/Person_0001')
     expect(await screen.findByRole('heading', { name: 'Person_0001' })).toBeInTheDocument()
@@ -38,6 +40,7 @@ describe('participant view', () => {
     expect(within(presence).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/videos/7?t=10.00', '/videos/7?t=30.00'])
     expect(screen.getByRole('link', { name: /Singing/ })).toHaveAttribute('href', '/videos/7?t=10.00&annotation=1')
     expect(screen.getByText('UNREVIEWED')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '0:10–0:20' })).toHaveAttribute('href', '/videos/7?t=10.00&clip=3')
   })
 
   it('reports an unknown participant', async () => {

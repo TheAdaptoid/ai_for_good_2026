@@ -176,4 +176,25 @@ CREATE TABLE IF NOT EXISTS StaffSession (
     expires_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_staff_session_staff ON StaffSession(staff_id);
+
+-- Pipeline-output import audit (Spec 004). Append-only, like ReviewEvent.
+CREATE TABLE IF NOT EXISTS ImportRun (
+    run_id INTEGER PRIMARY KEY,
+    pipeline_name TEXT NOT NULL CHECK (length(trim(pipeline_name)) > 0),
+    pipeline_version TEXT NOT NULL CHECK (length(trim(pipeline_version)) > 0),
+    models_json TEXT NOT NULL,
+    generated_at TEXT,
+    imported_at TEXT NOT NULL,
+    source_name TEXT NOT NULL,
+    input_sha256 TEXT NOT NULL,
+    counts_json TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS import_run_no_update BEFORE UPDATE ON ImportRun
+BEGIN
+    SELECT RAISE(ABORT, 'import history is append-only');
+END;
+CREATE TRIGGER IF NOT EXISTS import_run_no_delete BEFORE DELETE ON ImportRun
+BEGIN
+    SELECT RAISE(ABORT, 'import history is append-only');
+END;
 COMMIT;

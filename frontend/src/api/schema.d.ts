@@ -192,6 +192,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clips/{clip_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clip */
+        get: operations["clip_api_clips__clip_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/exports/annotations": {
         parameters: {
             query?: never;
@@ -235,6 +252,26 @@ export interface paths {
         };
         /** Health */
         get: operations["health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Imports
+         * @description Successful pipeline-output imports, newest first.
+         */
+        get: operations["imports_api_imports_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -436,6 +473,72 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** ImportResult */
+        ImportResult: {
+            /**
+             * Clips Inserted
+             * @default 0
+             */
+            clips_inserted: number;
+            /**
+             * Clips Skipped Protected
+             * @default 0
+             */
+            clips_skipped_protected: number;
+            /**
+             * Clips Unchanged
+             * @default 0
+             */
+            clips_unchanged: number;
+            /**
+             * Clips Updated
+             * @default 0
+             */
+            clips_updated: number;
+            /**
+             * Inserted
+             * @default 0
+             */
+            inserted: number;
+            /**
+             * Skipped Protected
+             * @default 0
+             */
+            skipped_protected: number;
+            /**
+             * Unchanged
+             * @default 0
+             */
+            unchanged: number;
+            /**
+             * Updated
+             * @default 0
+             */
+            updated: number;
+        };
+        /**
+         * ImportRun
+         * @description Audit record of one successful pipeline-output import.
+         */
+        ImportRun: {
+            counts: components["schemas"]["ImportResult"];
+            /** Generated At */
+            generated_at: string | null;
+            /** Imported At */
+            imported_at: string;
+            /** Input Sha256 */
+            input_sha256: string;
+            /** Models */
+            models: components["schemas"]["ModelRef"][];
+            /** Pipeline Name */
+            pipeline_name: string;
+            /** Pipeline Version */
+            pipeline_version: string;
+            /** Run Id */
+            run_id: number;
+            /** Source Name */
+            source_name: string;
+        };
         /** Label */
         Label: {
             category: components["schemas"]["LabelCategory"];
@@ -459,6 +562,13 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /** ModelRef */
+        ModelRef: {
+            /** Name */
+            name: string;
+            /** Revision */
+            revision: string | null;
         };
         /** NoteRequest */
         NoteRequest: {
@@ -1005,6 +1115,7 @@ export interface operations {
                 video_id?: number | null;
                 person_id?: string | null;
                 order?: "time" | "priority";
+                limit?: number | null;
             };
             header?: never;
             path?: never;
@@ -1019,6 +1130,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewClip"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clip_api_clips__clip_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewClip"];
                 };
             };
             /** @description Validation Error */
@@ -1113,6 +1255,26 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    imports_api_imports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRun"][];
                 };
             };
         };

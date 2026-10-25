@@ -38,6 +38,8 @@ test('dashboard lists the real footage', async ({ page }) => {
   await signIn(page)
   await expect(page.locator('table.videos tbody tr')).toHaveCount(12)
   await expect(page.getByText(/No review clips or suggested annotations yet/)).toBeVisible()
+  await expect(page.getByText('No review clips have been imported yet.')).toBeVisible()
+  await expect(page.getByText('No pipeline output has been imported yet.')).toBeVisible()
   await expect(page.locator('.stat', { hasText: 'Anonymous participants' })).toContainText('100')
   await shot(page, '02-dashboard')
   await page.getByRole('button', { name: 'Sign out' }).click()
@@ -49,6 +51,8 @@ test('video view plays, shows who is on screen, and seeks on click', async ({ pa
   await page.getByRole('link', { name: 'this is me-songwriting-camp2-reese' }).click()
   await expect(page.getByRole('heading', { name: 'this is me-songwriting-camp2-reese' })).toBeVisible()
   await expect(page.locator('.timeline__people .row')).toHaveCount(5)
+  await expect(page.locator('.timeline .bar--annotation')).toHaveCount(0) // no labels are fabricated
+  await expect(page.locator('.timeline .bar--clip')).toHaveCount(0)
   await playerReady(page)
   const bar = page.locator('.row', { has: page.getByRole('link', { name: 'Person_0045' }) }).locator('.bar--presence').nth(2)
   const title = await bar.getAttribute('title')

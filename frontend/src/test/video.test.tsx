@@ -15,6 +15,7 @@ function videoRoutes(store: { current: Annotation[] }, extra: Record<string, unk
       (a) => url.searchParams.get('include_rejected') === 'true' || a.review_status !== 'REJECTED'),
     'GET /api/annotations/1': () => store.current[0],
     'GET /api/annotations/1/history': [],
+    'GET /api/clips/3': CLIP,
     ...extra,
   }
 }
@@ -122,6 +123,28 @@ describe('video view', () => {
     await userEvent.click(within(panel).getByRole('button', { name: 'Save annotation' }))
     expect(within(panel).getByRole('alert')).toHaveTextContent('End must be at or after start')
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
+  })
+
+  it('opens a clip panel with participants, priority, and the clip annotations', async () => {
+    const inClip = annotation({ clip_id: 3, person_id: null, label_name: 'Group Performance', label_id: 7 })
+    const calls = mockApi(videoRoutes({ current: [inClip] }))
+    renderAt('/videos/7')
+    await userEvent.click(await screen.findByRole('button', { name: 'Review clip at 0:00' }))
+    const panel = await screen.findByRole('complementary', { name: 'Review clip' })
+    expect(within(panel).getByText('2.07')).toBeInTheDocument()
+    expect(within(panel).getByText('(positive-affect@1)')).toBeInTheDocument()
+    expect(within(panel).getByRole('link', { name: 'Person_0001' })).toHaveAttribute('href', '/participants/Person_0001')
+    expect(panel.textContent).not.toContain('%')
+    await userEvent.click(await within(panel).findByRole('button', { name: /Group Performance · whole clip/ }))
+    expect(await screen.findByRole('complementary', { name: 'Review annotation' })).toBeInTheDocument()
+    expect(calls.some((c) => c.path.startsWith('/api/annotations?clip_id=3'))).toBe(true)
+  })
+
+  it('renders no label bars when no annotations exist', async () => {
+    mockApi(videoRoutes({ current: [] }))
+    const { container } = renderAt('/videos/7')
+    await screen.findByRole('link', { name: 'Person_0002' })
+    expect(container.querySelectorAll('.bar--annotation')).toHaveLength(0)
   })
 
   it('shows not found for an unknown video', async () => {

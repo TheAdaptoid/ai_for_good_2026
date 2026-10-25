@@ -7,13 +7,14 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse, Response
 
 from analysis_db import catalog, exports, review
-from analysis_db.annotations import fetch_annotation, list_annotations, list_clips
+from analysis_db.annotations import fetch_annotation, get_clip, list_annotations, list_clips
 from analysis_db.contracts import (
-    UNSET, Annotation, AnnotationChanges, Label, LabelCategory, ParticipantDetail,
+    UNSET, Annotation, AnnotationChanges, ImportRun, Label, LabelCategory, ParticipantDetail,
     ParticipantSummary, ReviewClip, ReviewEvent, ReviewStatus, Source, VideoParticipant,
     VideoSummary,
 )
 from analysis_db.labels import list_labels
+from analysis_db.pipeline_import import list_import_runs
 from api.auth import Db, Staff, current_staff
 from api.schemas import CreateAnnotationRequest, EditRequest, NoteRequest, ReviewResult
 
@@ -119,8 +120,21 @@ def edit(annotation_id: int, body: EditRequest, account: Staff, connection: Db) 
 
 @router.get("/clips", tags=["clips"])
 def clips(connection: Db, video_id: int | None = None, person_id: str | None = None,
-          order: Literal["time", "priority"] = "time") -> list[ReviewClip]:
-    return list_clips(connection, video_id=video_id, person_id=person_id, order=order)
+          order: Literal["time", "priority"] = "time",
+          limit: Annotated[int | None, Query(ge=1, le=1000)] = None) -> list[ReviewClip]:
+    return list_clips(connection, video_id=video_id, person_id=person_id, order=order,
+                      limit=limit)
+
+
+@router.get("/clips/{clip_id}", tags=["clips"])
+def clip(clip_id: int, connection: Db) -> ReviewClip:
+    return get_clip(connection, clip_id)
+
+
+@router.get("/imports", tags=["imports"])
+def imports(connection: Db) -> list[ImportRun]:
+    """Successful pipeline-output imports, newest first."""
+    return list_import_runs(connection)
 
 
 @router.get("/labels", tags=["labels"])

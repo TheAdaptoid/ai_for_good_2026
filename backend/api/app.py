@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from analysis_db.contracts import REVIEW_TABLES, STAFF_TABLES, TABLES, DataError
+from analysis_db.contracts import IMPORT_TABLES, REVIEW_TABLES, STAFF_TABLES, TABLES, DataError
 from analysis_db.storage import assert_schema, connect_database
 from api import auth, routes
 
@@ -12,7 +12,7 @@ from api import auth, routes
 def create_app(db_path: Path, video_dir: Path) -> FastAPI:
     """Build the service; refuses to start unless the database has every required table."""
     with closing(connect_database(db_path, must_exist=True)) as connection:
-        assert_schema(connection, tables=TABLES + REVIEW_TABLES + STAFF_TABLES)
+        assert_schema(connection, tables=TABLES + REVIEW_TABLES + STAFF_TABLES + IMPORT_TABLES)
     app = FastAPI(title="TPA Video Review", docs_url="/api/docs", redoc_url=None,
                   openapi_url="/api/openapi.json")
     app.state.db_path = Path(db_path)

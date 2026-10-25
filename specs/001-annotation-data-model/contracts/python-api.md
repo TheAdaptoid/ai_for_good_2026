@@ -64,7 +64,8 @@ All of these require a non-empty `reviewer_id: str` and accept `note: str | None
 | Function | Behavior |
 |---|---|
 | `list_annotations(conn, *, video_id=None, start_frame=None, end_frame=None, person_id=None, label_id=None, category=None, source=None, review_status=None, clip_id=None, include_rejected=False) -> list[Annotation]` | Time filter returns annotations that overlap `[start_frame, end_frame]`. Ordered by video, then start frame |
-| `list_clips(conn, *, video_id=None, person_id=None, order="time" \| "priority") -> list[ReviewClip]` | `priority`: highest first, unscored last (FR-032) |
+| `list_clips(conn, *, video_id=None, person_id=None, clip_id=None, order="time" \| "priority", limit=None) -> list[ReviewClip]` | `priority`: highest first, unscored last (FR-032). `clip_id` and `limit` were added by Spec 004 |
+| `get_clip(conn, clip_id) -> ReviewClip` | One clip by ID. Raises `LookupError` if unknown (Spec 004) |
 | `import_machine_output(conn, video_id, clips: Sequence[ClipInput], annotations: Sequence[AnnotationInput]) -> ImportResult` | Inserts or updates by `import_key` only. Never touches protected annotations, or clips holding them. Never deletes anything: rows missing from a later import are kept ([research.md R3, R12](../research.md)). Returns `ImportResult` with annotation and clip outcomes counted separately (see below) |
 | `fetch_annotation(conn, annotation_id) -> Annotation` | Returns the current state of one annotation by ID, with label name, category and derived seconds, as `list_annotations` builds it. Applies **no** default filtering: REJECTED annotations are returned too, because it reads by ID. Raises `LookupError` if the ID doesn't exist. Used by `review.py` to return the post-action state |
 
@@ -78,9 +79,11 @@ All of these require a non-empty `reviewer_id: str` and accept `note: str | None
 | `clips_inserted` | New clips |
 | `clips_updated` | Unprotected clips whose span, score, method, or participant set changed |
 | `clips_skipped_protected` | Clips not touched because they hold a reviewed annotation |
+| `unchanged` | Eligible annotations identical to what's stored: not written (added by Spec 004) |
+| `clips_unchanged` | Eligible clips identical to what's stored: not written (added by Spec 004) |
 
-Rows that are eligible for update but identical to what's stored count as unchanged, and are not
-reported. They are neither written nor counted.
+Errors raised for one record are prefixed with its key, for example `annotation 'k1': …`.
+Multi-video, all-or-nothing file imports are in Spec 004's `analysis_db/pipeline_import.py`.
 
 ## Exports (`analysis_db/exports.py`)
 

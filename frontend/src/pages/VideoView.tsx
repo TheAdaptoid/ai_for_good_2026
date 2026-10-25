@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { api, ApiError, streamUrl, type Annotation } from '../api/client'
+import { api, ApiError, streamUrl, type Annotation, type ReviewClip } from '../api/client'
+import { ClipPanel } from '../components/ClipPanel'
 import { CreateForm } from '../components/CreateForm'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { ErrorState, Loading } from '../components/States'
@@ -14,6 +15,7 @@ export function VideoView() {
   const [params, setParams] = useSearchParams()
   const startAt = Number(params.get('t') ?? 0)
   const selectedId = params.get('annotation') ? Number(params.get('annotation')) : null
+  const clipId = params.get('clip') ? Number(params.get('clip')) : null
   const [showRejected, setShowRejected] = useState(false)
   const [creating, setCreating] = useState(false)
   const [currentTime, setCurrentTime] = useState(startAt)
@@ -30,6 +32,8 @@ export function VideoView() {
   const selected = useResource(() => selectedId === null ? Promise.resolve(null) : api.annotation(selectedId),
     [selectedId, annotations.data])
 
+  const selectedClip = useResource(() => clipId === null ? Promise.resolve(null) : api.clip(clipId), [clipId])
+
   const seek = useCallback((seconds: number) => {
     if (player.current) player.current.currentTime = seconds
     setCurrentTime(seconds)
@@ -42,6 +46,20 @@ export function VideoView() {
       return next
     }, { replace: true })
   }, [setParams])
+  const selectClip = useCallback((clip: ReviewClip) => {
+    setCreating(false)
+    setParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('clip', String(clip.clip_id))
+      next.delete('annotation')
+      return next
+    }, { replace: true })
+  }, [setParams])
+  const closeClip = () => setParams((current) => {
+    const next = new URLSearchParams(current)
+    next.delete('clip')
+    return next
+  }, { replace: true })
   const closePanel = () => setParams((current) => {
     const next = new URLSearchParams(current)
     next.delete('annotation')
@@ -72,7 +90,7 @@ export function VideoView() {
           </p>
         </div>
         <button type="button" className="primary" disabled={!fps || !labels.data}
-          onClick={() => { closePanel(); setCreating(true) }}>
+          onClick={() => { closePanel(); closeClip(); setCreating(true) }}>
           Add annotation
         </button>
       </div>
@@ -107,7 +125,7 @@ export function VideoView() {
           {participants.data && annotations.data && clips.data && duration > 0 ? (
             <Timeline duration={duration} clips={clips.data} annotations={annotations.data}
               participants={participants.data} currentTime={currentTime} selectedId={selectedId}
-              onSeek={seek} onSelect={select} />
+              selectedClipId={clipId} onSeek={seek} onSelect={select} onSelectClip={selectClip} />
           ) : (
             !participants.error && !annotations.error && !clips.error && <Loading what="timeline" />
           )}
@@ -116,6 +134,10 @@ export function VideoView() {
         {selected.data && labels.data && (
           <ReviewPanel key={selected.data.annotation_id} annotation={selected.data} labels={labels.data} fps={fps}
             participantIds={participantIds} onChanged={changed} onClose={closePanel} />
+        )}
+        {!selected.data && !creating && selectedClip.data && (
+          <ClipPanel key={selectedClip.data.clip_id} clip={selectedClip.data} showRejected={showRejected}
+            version={annotations.data} onSelect={select} onClose={closeClip} />
         )}
         {creating && labels.data && (
           <CreateForm videoId={videoId} fps={fps} labels={labels.data} participantIds={participantIds}

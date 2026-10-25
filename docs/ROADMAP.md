@@ -29,7 +29,8 @@ built:
 | `001-annotation-data-model` | 001 | COMMITTED |
 | `002-fastapi-service` | 003 + 004 (service and staff auth combined) | COMMITTED |
 | `003-react-app` | 005 + 006 + 007 + 008 (React app: dashboard, video, participant, review) | COMMITTED |
-| later | 002 clip and annotation generation pipeline | DEFERRED by the human |
+| `004-clip-annotation-pipeline` | 002, part 1: import format, protected importer, stage contracts, app support (no data generated, D024) | COMMITTED |
+| later | 002, part 2: clip segmentation, activity inference, affect aggregation, priority scoring, population of the real dataset | DEFERRED by the human |
 
 ---
 
@@ -61,7 +62,7 @@ Completion condition:
 
 ## 002 — Clip and Annotation Generation Pipeline
 
-Status: DEFERRED. The human chose to build the application first (D018).
+Status: SPLIT (D024). Infrastructure is committed as spec `004-clip-annotation-pipeline`. Generating data from real signals is DEFERRED.
 
 Depends on: 001
 

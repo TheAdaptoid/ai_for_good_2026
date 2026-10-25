@@ -408,6 +408,17 @@ Large unrelated refactors become separate future work.
 
 ---
 
+# Participant Media and AI Agents
+
+Real participant media must never reach a cloud AI or coding agent, this one included (Constitution I, D023):
+
+- never open, view, or attach video frames, face crops, raw participant images, screenshots or recordings that show participant footage, or participant audio
+- Playwright and other test tooling keep traces, videos, and failure screenshots off; deliberate screenshots mask the `<video>` element
+- verify UI with DOM assertions or masked screenshots only; if a visual check would need real footage, ask the human to do it
+- synthetic fixtures (generated frames, fake records) are fine to inspect
+
+---
+
 # TPA-Specific Persistent Rules
 
 Carry these decisions into every feature:

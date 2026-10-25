@@ -10,8 +10,10 @@ interface Props {
   participants: VideoParticipant[]
   currentTime: number
   selectedId: number | null
+  selectedClipId: number | null
   onSeek: (seconds: number) => void
   onSelect: (annotation: Annotation) => void
+  onSelectClip: (clip: ReviewClip) => void
 }
 
 const pct = (seconds: number, duration: number) => `${(Math.min(Math.max(seconds, 0), duration) / duration) * 100}%`
@@ -58,7 +60,7 @@ function group(annotations: Annotation[], participants: VideoParticipant[]) {
   return { byPerson, scene, people }
 }
 
-export function Timeline({ duration, clips, annotations, participants, currentTime, selectedId, onSeek, onSelect }: Props) {
+export function Timeline({ duration, clips, annotations, participants, currentTime, selectedId, selectedClipId, onSeek, onSelect, onSelectClip }: Props) {
   const { byPerson, scene, people } = useMemo(() => group(annotations, participants), [annotations, participants])
   const step = tickStep(duration)
   const ticks = Array.from({ length: Math.floor(duration / step) + 1 }, (_, i) => i * step)
@@ -79,10 +81,14 @@ export function Timeline({ duration, clips, annotations, participants, currentTi
         <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
           {clips.length === 0 && <span className="row__empty">none yet</span>}
           {clips.map((clip) => (
-            <button key={clip.clip_id} type="button" className="bar bar--clip"
+            <button key={clip.clip_id} type="button" className={`bar bar--clip ${clip.clip_id === selectedClipId ? 'bar--selected' : ''}`}
               style={spanStyle(clip.start_seconds ?? 0, clip.end_seconds ?? 0, duration)}
               title={`Review clip ${formatTime(clip.start_seconds)}–${formatTime(clip.end_seconds)}, ${clip.person_ids.length} participants${clip.priority_score === null ? ', review priority not computed' : `, review priority ${clip.priority_score.toFixed(2)}`}`}
-              onClick={() => onSeek(clip.start_seconds ?? 0)}>
+              aria-label={`Review clip at ${formatTime(clip.start_seconds)}`}
+              onClick={() => {
+                onSeek(clip.start_seconds ?? 0)
+                onSelectClip(clip)
+              }}>
               {clip.priority_score === null ? '' : clip.priority_score.toFixed(2)}
             </button>
           ))}

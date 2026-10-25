@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
-import { api, ApiError, type Annotation, type ParticipantVideo, type PresenceInterval } from '../api/client'
+import { api, ApiError, type Annotation, type ParticipantVideo, type PresenceInterval, type ReviewClip } from '../api/client'
 import { StatusBadges } from '../components/StatusBadge'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { formatTime } from '../format'
@@ -57,12 +57,15 @@ function ParticipantDetail({ personId }: { personId: string }) {
     return videos
   }, [personId])
   const annotations = useResource(() => api.annotations({ person_id: personId }), [personId])
+  const clips = useResource(() => api.clips({ person_id: personId }), [personId])
 
   if (detail.error instanceof ApiError && detail.error.status === 404) return <NotFound what="participant" />
   if (detail.error) return <ErrorState error={detail.error} onRetry={detail.reload} />
   if (!detail.data) return <Loading what={personId} />
   const byVideo = new Map<number, Annotation[]>()
   for (const a of annotations.data ?? []) byVideo.set(a.video_id, [...(byVideo.get(a.video_id) ?? []), a])
+  const clipsByVideo = new Map<number, ReviewClip[]>()
+  for (const c of clips.data ?? []) clipsByVideo.set(c.video_id, [...(clipsByVideo.get(c.video_id) ?? []), c])
 
   return (
     <>
@@ -72,6 +75,7 @@ function ParticipantDetail({ personId }: { personId: string }) {
         {annotations.data && ` · ${annotations.data.length} current annotations`}.
       </p>
       {annotations.error && <ErrorState error={annotations.error} onRetry={annotations.reload} />}
+      {clips.error && <ErrorState error={clips.error} onRetry={clips.reload} />}
       {detail.data.length === 0 && <Empty>This participant does not appear in any processed video.</Empty>}
       {detail.data.map((v) => (
         <article className="appearance" key={v.video_id}>
@@ -91,6 +95,18 @@ function ParticipantDetail({ personId }: { personId: string }) {
                 aria-label={`On screen at ${formatTime(i.start_seconds)}`} />
             ))}
           </div>
+          {(clipsByVideo.get(v.video_id) ?? []).length > 0 && (
+            <p className="clip-chips">
+              <span className="muted small">Review clips: </span>
+              {(clipsByVideo.get(v.video_id) ?? []).map((c) => (
+                <Link key={c.clip_id} className="chip"
+                  to={`/videos/${v.video_id}?t=${(c.start_seconds ?? 0).toFixed(2)}&clip=${c.clip_id}`}
+                  title={c.priority_score === null ? 'Review priority not computed' : `Review priority ${c.priority_score.toFixed(2)}`}>
+                  {formatTime(c.start_seconds)}–{formatTime(c.end_seconds)}
+                </Link>
+              ))}
+            </p>
+          )}
           {(byVideo.get(v.video_id) ?? []).length > 0 && (
             <ul className="moment-list">
               {(byVideo.get(v.video_id) ?? []).map((a) => (

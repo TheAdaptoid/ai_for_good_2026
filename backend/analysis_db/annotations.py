@@ -132,7 +132,8 @@ def list_annotations(connection: sqlite3.Connection, *, video_id: int | None = N
 
 
 def list_clips(connection: sqlite3.Connection, *, video_id: int | None = None,
-               person_id: str | None = None, order: str = "time") -> list[ReviewClip]:
+               person_id: str | None = None, clip_id: int | None = None,
+               order: str = "time", limit: int | None = None) -> list[ReviewClip]:
     """Clips by video/time, or by review priority (highest first, unscored last)."""
     assert_schema(connection, tables=REVIEW_TABLES)
     orders = {"time": "c.video_id, c.start_frame, c.clip_id",
@@ -144,6 +145,9 @@ def list_clips(connection: sqlite3.Connection, *, video_id: int | None = None,
     if video_id is not None:
         clauses.append("c.video_id = ?")
         params.append(video_id)
+    if clip_id is not None:
+        clauses.append("c.clip_id = ?")
+        params.append(clip_id)
     if person_id is not None:
         clauses.append("c.clip_id IN"
                        " (SELECT clip_id FROM ReviewClipParticipant WHERE person_id = ?)")
@@ -158,11 +162,18 @@ def list_clips(connection: sqlite3.Connection, *, video_id: int | None = None,
     rows = connection.execute(
         "SELECT c.clip_id, c.video_id, c.start_frame, c.end_frame, v.fps, c.priority_score,"
         " c.priority_method, c.created_at FROM ReviewClip c"
-        " JOIN Video v ON v.video_id = c.video_id" + where + " ORDER BY " + orders[order],
-        params).fetchall()
+        " JOIN Video v ON v.video_id = c.video_id" + where + " ORDER BY " + orders[order]
+        + ("" if limit is None else f" LIMIT {int(limit)}"), params).fetchall()
     return [ReviewClip(clip_id, video, start, end, _seconds(start, fps), _seconds(end, fps),
                        tuple(participants.get(clip_id, ())), score, method, created_at)
             for clip_id, video, start, end, fps, score, method, created_at in rows]
+
+
+def get_clip(connection: sqlite3.Connection, clip_id: int) -> ReviewClip:
+    found = list_clips(connection, clip_id=clip_id)
+    if not found:
+        raise LookupError(f"review clip {clip_id} does not exist")
+    return found[0]
 
 
 def _require_keys(items: Sequence, kind: str) -> None:
@@ -266,6 +277,31 @@ def _import_annotation(connection: sqlite3.Connection, video_id: int,
     return "updated" if cursor.rowcount else "protected"
 
 
+def _import_video(connection: sqlite3.Connection, video_id: int, clips: Sequence[ClipInput],
+                  annotations: Sequence[AnnotationInput], now: str) -> ImportResult:
+    """Upsert one video's output inside the caller's transaction (no commit or rollback here)."""
+    _require_keys(clips, "clip")
+    _require_keys(annotations, "annotation")
+    counts = dict.fromkeys(("inserted", "updated", "protected", "unchanged"), 0)
+    clip_counts = dict.fromkeys(("inserted", "updated", "protected", "unchanged"), 0)
+    clip_ids = {}
+    for clip in clips:
+        try:
+            clip_ids[clip.import_key], outcome = _import_clip(connection, video_id, clip, now)
+        except DataError as exc:
+            raise DataError(f"clip {clip.import_key!r}: {exc}") from exc
+        clip_counts[outcome] += 1
+    for item in annotations:
+        try:
+            counts[_import_annotation(connection, video_id, item, clip_ids, now)] += 1
+        except DataError as exc:
+            raise DataError(f"annotation {item.import_key!r}: {exc}") from exc
+    return ImportResult(counts["inserted"], counts["updated"], counts["protected"],
+                        clip_counts["inserted"], clip_counts["updated"],
+                        clip_counts["protected"], counts["unchanged"],
+                        clip_counts["unchanged"])
+
+
 def import_machine_output(connection: sqlite3.Connection, video_id: int,
                           clips: Sequence[ClipInput],
                           annotations: Sequence[AnnotationInput]) -> ImportResult:
@@ -277,19 +313,9 @@ def import_machine_output(connection: sqlite3.Connection, video_id: int,
     if connection.in_transaction:
         raise DataError("import requires an idle database connection")
     assert_schema(connection, tables=REVIEW_TABLES)
-    _require_keys(clips, "clip")
-    _require_keys(annotations, "annotation")
-    counts = dict.fromkeys(("inserted", "updated", "protected", "unchanged"), 0)
-    clip_counts = dict.fromkeys(("inserted", "updated", "protected", "unchanged"), 0)
-    now = _now()
     connection.execute("BEGIN IMMEDIATE")
     try:
-        clip_ids = {}
-        for clip in clips:
-            clip_ids[clip.import_key], outcome = _import_clip(connection, video_id, clip, now)
-            clip_counts[outcome] += 1
-        for item in annotations:
-            counts[_import_annotation(connection, video_id, item, clip_ids, now)] += 1
+        result = _import_video(connection, video_id, clips, annotations, _now())
         connection.commit()
     except sqlite3.IntegrityError as exc:
         connection.rollback()
@@ -297,6 +323,4 @@ def import_machine_output(connection: sqlite3.Connection, video_id: int,
     except BaseException:
         connection.rollback()
         raise
-    return ImportResult(counts["inserted"], counts["updated"], counts["protected"],
-                        clip_counts["inserted"], clip_counts["updated"],
-                        clip_counts["protected"])
+    return result
