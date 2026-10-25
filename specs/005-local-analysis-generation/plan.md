@@ -35,7 +35,8 @@ gains optional `pipeline.parameters`.
 - **R4 Sampling.** Windows per clip are `clamp(ceil(duration / 15 s), 1, 4)`, centred evenly. Each
   window spans 4 s around its centre, with 32 frame indices spaced evenly across it and clamped to
   the video. This is deterministic.
-- **R5 Activity aggregation.** Per window, the softmax over the K active activity labels
+- **R5 Activity aggregation.** Per window, the softmax over the K active activity labels with
+  explicitly configured model prompts (staff-only additions are excluded, D032)
   (uniform = 1/K, about 0.11 for 9). The representative label is the most common top-1 (ties: higher
   mean, then label order), emitted if its mean is ≥ **0.20**. Any other label with mean ≥ **0.30**
   is also emitted. Confidence is the label's mean. These are uncalibrated starting values and are
@@ -56,7 +57,7 @@ gains optional `pipeline.parameters`.
 | III. Minimization / ethics | ✅ | Affect is labeled "visible … affect" as an observation, and its confidence is the raw mean score. Priority is a ranking heuristic with a documented formula (Constitution IV requires formula documentation, done here and in D026) |
 | IV. Humans decide | ✅ | Everything imports as AI/UNREVIEWED. Confidence and priority are separate |
 | V. Protection | ✅ | Generation writes no review table. The Spec 004 importer enforces protection |
-| VI. Labels as data | ✅ | Activity candidates come from active DB labels. Prompts come from a data file |
+| VI. Labels as data | ✅ | Activity candidates come from active DB labels with explicit model prompts; staff-only labels do not alter inference (D032). Prompts come from a data file |
 | VII. Stage interfaces | ✅ | Each stage implements its Protocol, and the classifier is injected |
 | IX. Visible failure | ✅ | Missing video file or disabled activity is recorded in parameters and reported by the CLI. A failed run writes no file |
 | X. Tests | ✅ | Synthetic stage tests without the model. A decoder test on a synthetic video. A real-model smoke test skips without the cache |

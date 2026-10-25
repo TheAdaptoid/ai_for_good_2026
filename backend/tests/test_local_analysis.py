@@ -349,6 +349,34 @@ def test_cli_requires_output_and_reports_unknown_video(tmp_path):
     assert bad.returncode == 1 and "unknown video" in bad.stderr and not (tmp_path / "x.json").exists()
 
 
+@pytest.mark.parametrize("has_prompt", [False, True])
+def test_custom_staff_labels_need_explicit_model_prompts(tmp_path, monkeypatch, has_prompt):
+    from types import SimpleNamespace
+    import activity_classification
+    from scripts import generate_pipeline_output
+    from scripts.generate_pipeline_output import main
+    prompts = json.loads(generate_pipeline_output.PROMPTS_PATH.read_text())
+    if has_prompt:
+        prompts["Beatboxing"] = ["a person beatboxing"]
+    prompt_file = tmp_path / "prompts.json"
+    prompt_file.write_text(json.dumps(prompts))
+    monkeypatch.setattr(generate_pipeline_output, "PROMPTS_PATH", prompt_file)
+    db = synthetic_db(tmp_path)
+    with sqlite3.connect(db) as c:
+        c.execute("INSERT INTO Label(name,category) VALUES('Beatboxing','activity')")
+    monkeypatch.setattr(activity_classification, 'XCLIPClassifier',
+                        lambda **kwargs: SimpleNamespace(num_frames=32))
+    output = tmp_path / 'generated.json'
+    assert main(['--db', str(db), '--output', str(output), '--device', 'cpu',
+                 '--video-dir', str(tmp_path)]) == 0
+    parsed = parse_import_file(output.read_text())
+    labels = parsed.pipeline.parameters['activity_labels'].split(';')
+    assert 'Singing' in labels
+    assert ('Beatboxing' in labels) == has_prompt
+    with sqlite3.connect(db) as c:
+        assert c.execute("SELECT is_active FROM Label WHERE name='Beatboxing'").fetchone() == (1,)
+
+
 # --- Real model smoke test (skips without the model cache or the real database) --------------
 
 MODEL_CACHE = BACKEND / ".cache" / "huggingface" / "hub" / "models--microsoft--xclip-base-patch16-zero-shot"

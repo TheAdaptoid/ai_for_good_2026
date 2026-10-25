@@ -2,6 +2,9 @@ import { useRef, useState } from 'react'
 import { streamUrl, type PersonClip } from '../api/client'
 import { formatTime } from '../format'
 
+// Browsers round currentTime; seeking again for submillisecond differences can loop.
+const TIME_TOLERANCE = 0.001
+
 export function ClipPlayer({ clip }: { clip: PersonClip }) {
   const player = useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = useState(false)
@@ -14,8 +17,8 @@ export function ClipPlayer({ clip }: { clip: PersonClip }) {
 
   const synchronize = (video: HTMLVideoElement) => {
     const time = clamp(video.currentTime)
-    if (time !== video.currentTime) video.currentTime = time
-    if (time >= clip.end_seconds) video.pause()
+    if (Math.abs(time - video.currentTime) > TIME_TOLERANCE) video.currentTime = time
+    if (time >= clip.end_seconds - TIME_TOLERANCE) video.pause()
     setPosition(time - clip.start_seconds)
   }
 
@@ -24,7 +27,7 @@ export function ClipPlayer({ clip }: { clip: PersonClip }) {
     if (!video) return
     setError('')
     if (!video.paused) { video.pause(); return }
-    if (video.currentTime >= clip.end_seconds || video.currentTime < clip.start_seconds) {
+    if (video.currentTime >= clip.end_seconds - TIME_TOLERANCE || video.currentTime < clip.start_seconds - TIME_TOLERANCE) {
       video.currentTime = clip.start_seconds
     }
     try { await video.play() }
@@ -34,7 +37,7 @@ export function ClipPlayer({ clip }: { clip: PersonClip }) {
   return (
     <section aria-label="Clip playback">
       {missing ? <div className="player player--missing" role="alert">The video file is unavailable on this machine.</div> : <>
-        <video ref={player} className="player" aria-label={`Clip ${clip.clip_id}`} playsInline preload="metadata"
+        <video ref={player} className="player" aria-label={`Clip ${clip.clip_id}`} playsInline preload="auto"
           src={`${streamUrl(clip.video_id)}#t=${clip.start_seconds},${clip.end_seconds}`}
           onLoadedMetadata={(event) => { event.currentTarget.currentTime = clip.start_seconds; setReady(true) }}
           onSeeking={(event) => synchronize(event.currentTarget)}

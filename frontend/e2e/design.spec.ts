@@ -35,8 +35,8 @@ async function fixture(page: Page) {
     '/activity-counts': [{ activity_label: 'Synthetic singing', count: 3 }, { activity_label: 'Synthetic dancing', count: 1 }],
     '/participants': [{ person_id: 'Person_0001', video_count: 1, detection_count: 2 }],
     '/participants/Person_0001': { person_id: 'Person_0001', videos: [{ ...video, ...people[0] }] },
-    '/person-clips': [{ clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], mean_positive_score: 0.5, impact_score: 0.55, created_at: '2026-10-25T00:00:00Z' }],
-    '/person-clips/8': { clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], mean_positive_score: 0.5, impact_score: 0.55, created_at: '2026-10-25T00:00:00Z' },
+    '/person-clips': [{ clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], review_status: 'UNREVIEWED', mean_positive_score: 0.5, impact_score: 0.55, created_at: '2026-10-25T00:00:00Z' }],
+    '/person-clips/8': { clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], review_status: 'UNREVIEWED', mean_positive_score: 0.5, impact_score: 0.55, created_at: '2026-10-25T00:00:00Z' },
     '/person-clips/8/summary': { impact_score: 0.55, dominant_activity: 'Synthetic singing', activity_distribution: { 'Synthetic singing': 1 }, visible_affect: { positive: 0.5, neutral: 0.4, negative: 0.1, observation_count: 2 } },
     '/clips': [clip], '/clips/3': clip, '/annotations': [annotation], '/annotations/1': annotation,
     '/annotations/1/history': [], '/imports': [],
@@ -148,9 +148,9 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await page.getByLabel('Dataset').selectOption('annotations')
     await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Synthetic singing observation')
     await page.getByText('Export', { exact: true }).click()
-    await expect(page.getByRole('link', { name: 'Annotations (CSV)' })).toBeVisible()
-    await expect(page.getByText('Download database records or staff review data as CSV or JSON.')).toBeVisible()
-    await page.getByText('Export', { exact: true }).click()
+    await expect(page.getByRole('link', { name: 'CSV', exact: true })).toBeVisible()
+    await expect(page.getByText('Choose a format to download all records in this dataset.')).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
     await page.getByRole('link', { name: 'Participants', exact: true }).click()
     await expect(page.getByLabel('Find an anonymous ID')).toBeVisible()

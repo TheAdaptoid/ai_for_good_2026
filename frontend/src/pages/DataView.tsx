@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { api, exportUrl, type ExportKind } from '../api/client'
 import { ErrorState, Loading } from '../components/States'
 import { useResource } from '../hooks'
@@ -15,6 +15,7 @@ const DATASETS: { kind: ExportKind; label: string }[] = [
 
 export function DataView() {
   const [kind, setKind] = useState<ExportKind>('clips')
+  const exportDialog = useRef<HTMLDialogElement>(null)
   const preview = useResource(() => api.exportCsv(kind), [kind])
   const [columns = [], ...rows] = useMemo(() => parseCsv(preview.data ?? ''), [preview.data])
   const label = DATASETS.find((dataset) => dataset.kind === kind)!.label
@@ -23,22 +24,17 @@ export function DataView() {
     <>
       <div className="page-head">
         <h1>Data view</h1>
-        <details className="menu">
-          <summary aria-describedby="export-help">Export</summary>
-          <div className="menu__content">
-            <p id="export-help" className="muted small">Download database records or staff review data as CSV or JSON.</p>
-            <ul>
-              {DATASETS.filter((dataset) => dataset.kind !== 'annotations' && dataset.kind !== 'history').map((dataset) =>
-                <li key={dataset.kind}>{(['csv', 'json'] as const).map((format) =>
-                  <a key={format} href={exportUrl(dataset.kind, format)} download>{dataset.label} ({format.toUpperCase()})</a>)}</li>)}
-              <li><a href={exportUrl('annotations', 'csv')} download>Annotations (CSV)</a></li>
-              <li><a href={exportUrl('annotations', 'json')} download>Annotations (JSON)</a></li>
-              <li><a href={exportUrl('history', 'csv')} download>Review history (CSV)</a></li>
-              <li><a href={exportUrl('history', 'json')} download>Review history (JSON)</a></li>
-            </ul>
-          </div>
-        </details>
+        <button type="button" onClick={() => exportDialog.current?.showModal()}>Export</button>
       </div>
+      <dialog className="export-dialog" ref={exportDialog} aria-labelledby="export-title" aria-describedby="export-help">
+        <h2 id="export-title">Export {label}</h2>
+        <p id="export-help" className="muted">Choose a format to download all records in this dataset.</p>
+        <div className="button-row">
+          {(['csv', 'json'] as const).map((format) =>
+            <a key={format} href={exportUrl(kind, format)} download onClick={() => exportDialog.current?.close()}>{format.toUpperCase()}</a>)}
+        </div>
+        <form method="dialog"><button>Cancel</button></form>
+      </dialog>
       <p className="muted">Preview the CSV generated from the current database. With no records, only column headers appear.</p>
       <label className="data-view__dataset">
         Dataset

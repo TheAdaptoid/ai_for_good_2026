@@ -6,20 +6,20 @@ import { drawnShares } from '../pieShares'
 const routes = (counts: unknown) => ({ 'GET /api/auth/me': ME, 'GET /api/videos': [VIDEO], 'GET /api/participants': [],
   'GET /api/clips': [], 'GET /api/imports': [], 'GET /api/activity-counts': counts })
 
-it('shows every activity with its count and share, colour following the label', async () => {
+it('shows every activity with its share and mean, colour following the label', async () => {
   mockApi(routes([{ activity_label: 'Uncertain result', count: 6, mean_positive_score: 0.29, observation_count: 60 },
     { activity_label: 'Rapping', count: 3, mean_positive_score: 0.25, observation_count: 30 },
     { activity_label: 'Acting', count: 1, mean_positive_score: null, observation_count: 0 }]))
   renderAt('/')
-  const legend = await screen.findByRole('list', { name: 'Activity counts' })
+  const legend = await screen.findByRole('list', { name: 'Activity shares' })
   expect(within(legend).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
-    ['Uncertain result660.0%0.290', 'Rapping330.0%0.250', 'Acting110.0%—'])
+    ['Uncertain result60.0%0.290', 'Rapping30.0%0.250', 'Acting10.0%—'])
   const slices = Array.from(document.querySelectorAll('.activity-chart > svg:first-child path'))
   // Largest to smallest; activities take colour slots by rank and the uncertain result is gray.
   expect(slices.map((s) => [s.getAttribute('aria-label'), s.getAttribute('fill')])).toEqual([
     ['Uncertain result: 6 windows, 60.0%', 'var(--series-neutral)'], ['Rapping: 3 windows, 30.0%', 'var(--series-1)'],
     ['Acting: 1 windows, 10.0%', 'var(--series-2)']])
-  expect(screen.getByRole('img', { name: 'Pie chart of 10 activity windows by label' })).toHaveTextContent('10windows')
+  expect(screen.getByRole('img', { name: 'Pie chart of activity shares by label' })).not.toHaveTextContent('10windows')
   const pie = screen.getByRole('img', { name: /^Pie chart/ })
   fireEvent.focus(slices[1])
   expect(pie).toHaveTextContent('30.0%Rapping')
@@ -28,24 +28,24 @@ it('shows every activity with its count and share, colour following the label', 
   // Bars run from highest mean to lowest and keep the pie's colours; no observations means no bar.
   const bars = Array.from(document.querySelectorAll('.affect-bars path'))
   expect(bars.map((b) => [b.getAttribute('aria-label'), b.getAttribute('fill')])).toEqual([
-    ['Uncertain result: mean positive score 0.290', 'var(--series-neutral)'],
-    ['Rapping: mean positive score 0.250', 'var(--series-1)']])
+    ['Uncertain result: mean positive engagement score 0.290', 'var(--series-neutral)'],
+    ['Rapping: mean positive engagement score 0.250', 'var(--series-1)']])
   expect(screen.getByRole('img', { name: /^Bar chart/ })).toHaveTextContent('no data')
   fireEvent.focus(bars[1])
   expect(screen.getByRole('img', { name: /^Bar chart/ })).toHaveTextContent('0.250')
 })
 
-it('folds labels beyond eight into Other and handles empty data', async () => {
+it('folds labels beyond eight into Reviewer Defined and handles empty data', async () => {
   const many = Array.from({ length: 10 }, (_, i) => ({ activity_label: `Label ${String.fromCharCode(74 - i)}`, count: 20 - i }))
   mockApi(routes(many))
   const view = renderAt('/')
-  const legend = await screen.findByRole('list', { name: 'Activity counts' })
-  expect(within(legend).getAllByRole('listitem')).toHaveLength(8) // seven activities + Other
-  expect(within(legend).getByText('Other')).toBeInTheDocument()
-  expect(within(legend).getByText('(3 labels)')).toBeInTheDocument()
+  const legend = await screen.findByRole('list', { name: 'Activity shares' })
+  expect(within(legend).getAllByRole('listitem')).toHaveLength(8) // seven activities + folded group
+  expect(within(legend).getByText('Reviewer Defined')).toBeInTheDocument()
+  expect(within(legend).queryByText('(3 labels)')).not.toBeInTheDocument()
   const fills = Array.from(document.querySelectorAll('.activity-chart > svg:first-child path'), (p) => p.getAttribute('aria-label'))
   expect(fills[0]).toMatch(/^Label J: 20/) // largest first
-  expect(fills.at(-1)).toMatch(/^Other: 36/) // folded J..: 13 + 12 + 11
+  expect(fills.at(-1)).toMatch(/^Reviewer Defined: 36/) // folded J..: 13 + 12 + 11
   view.unmount()
   mockApi(routes([]))
   renderAt('/')

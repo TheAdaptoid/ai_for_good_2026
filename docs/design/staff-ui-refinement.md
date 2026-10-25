@@ -260,10 +260,36 @@ stream with a media time fragment and accessible excerpt-relative play/pause and
 Seeking is clamped to the stored bounds and playback pauses at the end. The current activity
 and visible-affect summary follows the player; full-video timelines are absent.
 
-Review writes are pending a product decision: do actions apply to individual underlying records
-or to the aggregate clip summary? Raw records currently have correction audits but no persisted
-Accept/Defer state. Do not silently overwrite every observation to edit a displayed average.
-This feedback pass is not complete or committed until that decision and the review actions land.
+Accept and Defer persist the clip's review status and append a ClipReviewEvent without changing
+its underlying signal values. Both actions return to the originating review filter and page
+after a successful save and show an accessible confirmation. Filter and page live in the URL;
+an emptied last page falls back to the last available page. Clip tiles display the current
+review status. Failed writes leave the clip open with an error and no success message.
+The clip heading, video, and excerpt playback controls share a white card.
+
+The review search submits video-title substrings or exact clip IDs (optionally prefixed with #)
+to the database before pagination. Counts and review-status tabs use the same search. Search,
+filter, and page persist when opening a clip and returning after a review. Saving an edit returns
+with a dismissible success popup and an EDITED status. Activity labels are human annotations
+limited to the clip's analyzed frames; raw model windows and other clips remain unchanged.
+New labels remain reusable staff options without automatically becoming model candidates.
+Tiles show duration instead of source-video start/end times. ACCEPTED and EDITED use the same
+pale green badge, DEFERRED pale yellow, and UNREVIEWED pale red, with readable text labels.
+The dashboard activity legend shows Activity, Share, and Mean positive; the Windows column
+and default total-window count in the pie center are hidden. Highlighted shares and labels remain.
+The folded group's display name is Reviewer Defined, without a label-count suffix. The mean
+column is MPE Score and the bar axis is Mean Positive Engagement Score. These text changes
+retain the existing grouping and score calculations.
+Data view exports use the currently selected dataset. Export opens a native modal dialog
+with CSV and JSON download links for that dataset only. Downloads include every record;
+Cancel or Escape closes the dialog and restores focus to Export.
+
+Latest validation: the delegated unit pass completed before the user's instruction to stop
+unit testing (62 frontend tests; backend 863 passed, 1 skipped, and the two existing environment
+failures: missing `/tmp/opencode` and case-insensitive filenames). Typecheck, build, and lint
+pass. No additional unit tests were started after that instruction. Existing historical human
+corrections were not automatically rewritten; the new scoped activity behavior applies to
+subsequent saves. The local application database remains uncommitted.
 
 Validation: 40 Vitest tests, typecheck, lint, build, 50 API tests, 18 privacy-safe browser tests,
 and shipping Impeccable detection pass. A focused excerpt playback browser test also passes

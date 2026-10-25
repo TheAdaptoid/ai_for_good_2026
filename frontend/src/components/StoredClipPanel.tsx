@@ -32,7 +32,9 @@ export function StoredClipPanel({ clip, onClose, personHref = (id) => `/particip
         <h3>Activity</h3>
         {summary.data.dominant_activity === null ? <Empty>No activity results overlap this clip.</Empty> : <>
           <p>{summary.data.dominant_activity}</p>
-          <p className="muted small">Share of overlapping activity-window time; not model confidence.</p>
+          <p className="muted small">{summary.data.activity_source === 'HUMAN'
+            ? 'Human-reviewed activity assigned to this clip’s frames.'
+            : 'Share of overlapping model activity-window time; not model confidence.'}</p>
           <dl className="facts">{Object.entries(summary.data.activity_distribution).map(([label, weight]) =>
             <div className="summary-pair" key={label}><dt>{label}</dt><dd>{(weight * 100).toFixed(1)}%</dd></div>)}</dl>
         </>}

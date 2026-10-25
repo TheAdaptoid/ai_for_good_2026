@@ -17,7 +17,7 @@ interface Slice { label: string; count: number; mean: number | null; color: stri
 /**
  * Slices run largest to smallest, clockwise from the top. Activities take colour slots by rank, so
  * neighbouring slices are always the validated adjacent pairs; a per-label colour failed the
- * colour-blindness check once sorted by size. Uncertain results and "Other" (activities past
+ * colour-blindness check once sorted by size. Uncertain results and "Reviewer Defined" (activities past
  * seven, always last) are gray. Ties sort by name.
  */
 function slices(counts: ActivityCount[]): Slice[] {
@@ -30,10 +30,10 @@ function slices(counts: ActivityCount[]): Slice[] {
     result.push({ label: c.activity_label, count: c.count, mean: c.mean_positive_score ?? null, color: 'var(--series-neutral)' })
   }
   result.sort((a, b) => b.count - a.count)
-  // "Other" always closes the ring, even when its combined count outweighs a kept activity.
+  // The folded group always closes the ring, even when its count outweighs a kept activity.
   if (folded.length) {
     const observations = folded.reduce((n, c) => n + (c.observation_count ?? 0), 0)
-    result.push({ label: 'Other', count: folded.reduce((n, c) => n + c.count, 0), color: 'var(--series-other)', members: folded,
+    result.push({ label: 'Reviewer Defined', count: folded.reduce((n, c) => n + c.count, 0), color: 'var(--series-other)', members: folded,
       // Observation-weighted, matching how each activity's own mean is computed.
       mean: observations ? folded.reduce((n, c) => n + (c.mean_positive_score ?? 0) * (c.observation_count ?? 0), 0) / observations : null })
   }
@@ -118,14 +118,14 @@ function AffectBars({ data, active, setActive, t }: { data: Slice[]; active: str
   return (
     <div ref={ref} className="affect-bars-wrap">
     <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="affect-bars" role="img"
-      aria-label="Bar chart of mean positive visible-affect score by activity" onMouseLeave={() => setActive(null)}>
+      aria-label="Bar chart of Mean Positive Engagement Score by activity" onMouseLeave={() => setActive(null)}>
       {ticks.map((t) => (
         <g key={t}>
           <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} className={t === 0 ? 'axis-line' : 'grid-line'} />
           <text x={PAD.left - 8} y={y(t) + 4} textAnchor="end" className="axis-text">{t.toFixed(1)}</text>
         </g>
       ))}
-      <text transform={`translate(14 ${PAD.top + plotH / 2}) rotate(-90)`} textAnchor="middle" className="axis-title">Mean positive score</text>
+      <text transform={`translate(14 ${PAD.top + plotH / 2}) rotate(-90)`} textAnchor="middle" className="axis-title">Mean Positive Engagement Score</text>
       {bars.map((s, i) => {
         const cx = PAD.left + slot * i + slot / 2
         const label = rotate && s.label.length > 18 ? `${s.label.slice(0, 17)}…` : s.label
@@ -137,7 +137,7 @@ function AffectBars({ data, active, setActive, t }: { data: Slice[]; active: str
             {s.mean === null
               ? <text x={cx} y={y(0) - 6} textAnchor="middle" className="axis-text">no data</text>
               : <path d={bar(cx - barW / 2, y(s.mean * t), barW, y(0) - y(s.mean * t))} fill={s.color} className={`slice ${active === s.label ? 'slice--active' : ''}`}
-                  tabIndex={0} aria-label={`${s.label}: mean positive score ${s.mean.toFixed(3)}`}
+                  tabIndex={0} aria-label={`${s.label}: mean positive engagement score ${s.mean.toFixed(3)}`}
                   onFocus={() => setActive(s.label)} onBlur={() => setActive(null)}>
                   <title>{`${s.label}: ${s.mean.toFixed(3)}`}</title>
                 </path>}
@@ -167,7 +167,7 @@ export function ActivityPie() {
       <h2 id="activity-chart-title">Activities by frequency</h2>
       <p className="muted small">
         Current activity label of every analyzed window: model suggestions plus staff corrections.
-        Counts are windows, not people or minutes. Hovering a small slice enlarges it to be seen; the legend
+        Shares are based on windows, not people or minutes. Hovering a small slice enlarges it to be seen; the legend
         gives exact shares. The bars show the mean positive visible-affect score of
         the face observations inside each activity's windows: an observable signal, not an emotional state.
       </p>
@@ -180,7 +180,7 @@ export function ActivityPie() {
         let angle = 0
         return (
           <div className="activity-chart">
-            <svg viewBox="0 0 200 200" role="img" aria-label={`Pie chart of ${total} activity windows by label`}
+            <svg viewBox="0 0 200 200" role="img" aria-label="Pie chart of activity shares by label"
               onMouseLeave={() => setActive(null)}>
               {data.length === 1
                 ? <circle cx="100" cy="100" r={(R + INNER) / 2} fill="none" stroke={data[0].color} strokeWidth={R - INNER} />
@@ -198,24 +198,25 @@ export function ActivityPie() {
                     </path>
                   )
                 })}
-              <text x="100" y="98" textAnchor="middle" className="pie-center__value">
-                {shown ? percent(shown.count * t, total) : Math.round(total * t)}
-              </text>
-              <text x="100" y="118" textAnchor="middle" className="pie-center__label">
-                {shown ? shown.label.slice(0, 22) : 'windows'}
-              </text>
+              {shown && <>
+                <text x="100" y="98" textAnchor="middle" className="pie-center__value">
+                  {percent(shown.count * t, total)}
+                </text>
+                <text x="100" y="118" textAnchor="middle" className="pie-center__label">
+                  {shown.label.slice(0, 22)}
+                </text>
+              </>}
             </svg>
-            <ul className="activity-legend" aria-label="Activity counts">
+            <ul className="activity-legend" aria-label="Activity shares">
               <li className="activity-legend__head" aria-hidden="true">
-                <span /><span>Activity</span><span className="count">Windows</span><span className="share">Share</span><span className="mean">Mean positive</span>
+                <span /><span>Activity</span><span className="share">Share</span><span className="mean">MPE Score</span>
               </li>
               {data.map((s) => (
                 <li key={s.label} className={active === s.label ? 'legend--active' : undefined}
                   onMouseEnter={() => setActive(s.label)} onMouseLeave={() => setActive(null)}
                   title={s.members?.map((m) => `${m.activity_label}: ${m.count}`).join('\n')}>
                   <span className="swatch-dot" style={{ background: s.color }} aria-hidden="true" />
-                  <span>{s.label}{s.members && <span className="muted small"> ({s.members.length} labels)</span>}</span>
-                  <span className="count">{Math.round(s.count * t)}</span>
+                  <span>{s.label}</span>
                   <span className="share">{percent(s.count * t, total)}</span>
                   <span className="mean">{s.mean === null ? '—' : (s.mean * t).toFixed(3)}</span>
                 </li>

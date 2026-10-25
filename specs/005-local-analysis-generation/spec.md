@@ -96,7 +96,8 @@ clip. The method is recorded as `participant_count_positive_affect_v1`.
 ### User Story 5 - Activity from a local video model (Priority: P1)
 
 For each clip, a few short windows are sampled deterministically and classified zero-shot against
-the active activity labels in the database. The label that wins most often across windows is the
+the active activity labels in the database that have explicitly configured model prompts (D032).
+Staff-created label options alone do not change model candidates. The label that wins most often across windows is the
 clip's representative activity, if it has enough support. Other labels with strong average support
 are also emitted. Confidence is the label's average candidate-relative score.
 
@@ -150,7 +151,8 @@ reviewer), and export. Regenerating and re-importing never overwrites reviewed w
   participants, method `participant_count_positive_affect_v1`, and None when no participant has
   expression scores.
 - **FR-007**: Activity MUST use a local open-source zero-shot video model over deterministic
-  sampled windows, against the active activity labels from the database, with prompts held as data.
+  sampled windows, against active activity labels from the database with explicitly configured
+  model prompts held as data. Adding a staff label alone MUST NOT change model candidates (D032).
   It MUST emit the representative (most-common) label and any further labels meeting the
   multi-label threshold, and MUST emit nothing below the support threshold.
 - **FR-008**: Each stage MUST implement its Spec 004 Protocol and be testable without the model

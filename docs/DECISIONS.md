@@ -468,3 +468,15 @@ The stored-clip impact score is `ln(1 + duration_seconds / 3) × 1.5^N × mean p
 The human chose `ln(1 + s/3)` over `ln(s/3)` and `log10(s)/3` because it is never negative:
 clips under 3 seconds, which are common, keep a small positive weight rather than ranking below
 clips with zero positive affect. Longer clips still rank higher, with diminishing returns.
+
+---
+
+## D032 — Manual Clip Activity Labels Do Not Rewrite Model Predictions
+
+Decided by the human on 2026-10-25. Manual clip activity edits create or update a human annotation
+covering only analyzed frames in that clip's half-open interval, with append-only review history.
+Model Activity rows and neighboring clips are preserved. The clip summary displays the human
+activity; annotation views and exports read the same record. New labels remain available for
+staff on other videos without renaming existing labels. Adding a staff label does not alter model
+candidates: an explicit configured model prompt is also required. Existing historical corrections
+are retained rather than automatically reversed.

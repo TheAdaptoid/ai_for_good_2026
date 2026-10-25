@@ -105,9 +105,9 @@ export const api = {
   clips: (query: { video_id?: number; person_id?: string; order?: 'time' | 'priority'; limit?: number }) =>
     request<ReviewClip[]>('GET', withQuery('/clips', query)),
   clip: (id: number) => request<ReviewClip>('GET', `/clips/${id}`),
-  personClips: (query: { video_id?: number; person_id?: string; review_status?: ClipReviewStatus; limit?: number; offset?: number }) =>
+  personClips: (query: { video_id?: number; person_id?: string; review_status?: ClipReviewStatus; search?: string; limit?: number; offset?: number }) =>
     request<PersonClip[]>('GET', withQuery('/person-clips', query)),
-  personClipStatusCounts: () => request<Record<ClipReviewStatus, number>>('GET', '/person-clips/status-counts'),
+  personClipStatusCounts: (search?: string) => request<Record<ClipReviewStatus, number>>('GET', withQuery('/person-clips/status-counts', { search })),
   personClip: (id: number) => request<PersonClip>('GET', `/person-clips/${id}`),
   personClipSummary: (id: number) => request<StoredClipSummary>('GET', `/person-clips/${id}/summary`),
   reviewPersonClip: (id: number, action: 'accept' | 'defer') => request<PersonClip>('POST', `/person-clips/${id}/${action}`),

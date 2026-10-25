@@ -197,8 +197,10 @@ uv run python scripts/serve.py                          # http://127.0.0.1:8000/
 
 Stored analysis is also exposed through authenticated, read-only endpoints:
 
-- `person-clips?video_id=...&person_id=...&limit=...&offset=...` reads `Clip`/`ClipPerson`,
-  ordered by video and time. Either filter and pagination are optional; limit is 1–1000.
+- `person-clips?video_id=...&person_id=...&search=...&limit=...&offset=...` reads `Clip`/`ClipPerson`,
+  ordered by video and time. Search matches video titles (case-insensitive substrings) or an exact
+  clip ID, with or without `#`; it combines with review-status filters and pagination. Limit is
+  1–1000. `person-clips/status-counts?search=...` returns matching totals for each status.
 - `person-clips/{id}` returns the stored boundaries in seconds and actual participant IDs.
 - `person-clips/{id}/summary` reuses the live current-label and visible-affect aggregation
   described under audited corrections below. It exposes neither filesystem paths nor media.
@@ -212,11 +214,16 @@ These reads do not generate clips, run models, populate review tables, or alter 
 
 Stored clips carry their own `review_status` (`UNREVIEWED`, `ACCEPTED`, `EDITED`, `DEFERRED`).
 `POST person-clips/{id}/accept` and `/defer` change only that status. `POST person-clips/{id}/edit`
-takes an active activity label and/or all three visible-affect scores: it relabels every Activity
-window overlapping the clip and sets each member's Engagement scores inside the clip, through the
-audited corrections, then marks the clip `EDITED`. Windows straddling a clip boundary are shared
-with the neighbouring clip. Every action appends a `ClipReviewEvent` with the signed-in reviewer,
-in the same transaction. `scripts/init_db.py` adds the column to older databases.
+takes an active activity label and/or all three visible-affect scores, then marks the clip `EDITED`.
+Activity edits create or update a `HUMAN` annotation spanning only analyzed frames whose timestamps
+lie in the clip's half-open interval. Model `Activity` rows and neighboring clips remain unchanged.
+Annotation edits append `ReviewEvent` history; the clip summary identifies this activity as human
+reviewed, and normal annotation views/exports include it. A new label adds a reusable staff option
+without renaming or deactivating previous labels. Labels become model candidates only when they
+also have an explicit entry in `pipeline/activity_prompts.json`.
+Visible-affect edits set member Engagement scores inside the clip through audited corrections.
+Every action appends a `ClipReviewEvent` in the same transaction. `scripts/init_db.py` adds the
+review-status column to older databases. Existing historical corrections are not rewritten.
 Raw signals have no staff review status and no computed review priority. Existing staff
 annotation/review APIs retain their behavior and separate ID namespace.
 

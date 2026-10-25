@@ -23,8 +23,8 @@ describe('data view', () => {
     ])
     expect(calls.every((call) => call.method === 'GET')).toBe(true)
     await userEvent.click(screen.getByText('Export', { exact: true }))
-    expect(screen.getByRole('link', { name: 'Annotations (CSV)' })).toHaveAttribute('href', '/api/exports/annotations?format=csv')
-    expect(screen.getByRole('link', { name: 'Review history (JSON)' })).toHaveAttribute('href', '/api/exports/history?format=json')
+    expect(screen.getByRole('link', { name: 'CSV' })).toHaveAttribute('href', '/api/exports/history?format=csv')
+    expect(screen.getByRole('link', { name: 'JSON' })).toHaveAttribute('href', '/api/exports/history?format=json')
   })
 
   it('shows the CSV header when there are no records', async () => {

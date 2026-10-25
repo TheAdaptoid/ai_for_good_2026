@@ -147,7 +147,7 @@ test('create, edit, history, reject, and export a human annotation', async ({ pa
   await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Spoken Performance')
   await page.getByText('Export', { exact: true }).click()
   const download = page.waitForEvent('download')
-  await page.getByRole('link', { name: 'Annotations (CSV)' }).click()
+  await page.getByRole('link', { name: 'CSV', exact: true }).click()
   const csv = readFileSync(await (await download).path(), 'utf8')
   expect(csv).toContain('Spoken Performance,activity')
   expect(csv).toContain('HUMAN,EDITED')
