@@ -269,6 +269,31 @@ ORDER BY f.video_id, f.frame_number, d.detection_id;
 Engagement contains single-frame facial-expression scores, not established
 measurements of engagement, mood, or satisfaction.
 
+### Publish repeated 500-instance checkpoints
+
+`scripts/run_activity_checkpoints.py` runs from an isolated worktree. Its input
+and output is the tracked `data/analysis.sqlite` in that worktree. Seed it from
+the migrated local database before starting. The main checkout must be on `main`.
+
+```bash
+uv run --locked python scripts/run_activity_checkpoints.py --main-root "$MAIN_CHECKOUT" --chunk-size 500 --device cuda
+```
+
+Each chunk processes up to 500 pending centers with FP32, GPU batch size 2, and
+the current prompts/uncertainty rule. The process retains the loaded model and
+timestamp indexes between chunks. It verifies integrity, foreign keys, and exact
+preservation of the five non-Activity tables before committing only the SQLite
+file. It integrates concurrent main/remote commits in the inference worktree,
+fast-forwards local main, and pushes main after each checkpoint. Unrelated staged
+work in the main checkout is preserved.
+
+Reports and progress logs belong under ignored `backend/results/checkpoints/`.
+The final shorter chunk is also published. Ctrl-C or SIGTERM stops processing and
+saves a partial report; completed rows remain in the worktree even if the partial
+chunk has not been published. A validation/Git error stops the loop without a
+force-push. GitHub checkpoints must stay below its 100 MiB per-file limit. Inference
+code changes merged during the run require a restart before the next chunk.
+
 ## Database
 
 Six tables: `Video` (one row per probed video file), `Frame`, `Person`,
