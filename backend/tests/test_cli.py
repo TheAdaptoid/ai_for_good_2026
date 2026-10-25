@@ -85,6 +85,17 @@ def test_ingest_cli_uninitialized_database_reports_missing_tables(tmp_path):
     assert tables == []
 
 
+
+def test_init_cli_reports_review_table_counts(tmp_path):
+    db = tmp_path / "review.sqlite"
+    result = subprocess.run([sys.executable, str(INIT_SCRIPT), "--db", str(db)],
+                            cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    lines = result.stdout.splitlines()[1:]
+    assert lines == [f"  {table}: 0" for table in EXPECTED_TABLES] + [
+        "  Label: 18", "  ReviewClip: 0", "  ReviewClipParticipant: 0",
+        "  Annotation: 0", "  ReviewEvent: 0"]
+
 def test_ingest_cli_rejected_file_reports_error_and_continues(tmp_path):
     with repo_data_root() as root:
         videos = Path(root) / "videos"

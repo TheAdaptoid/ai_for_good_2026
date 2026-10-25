@@ -61,6 +61,14 @@ def replace_identity_tables(connection: sqlite3.Connection,
     if connection.in_transaction:
         raise DataError("replacement requires an idle database connection")
     assert_schema(connection)
+    # Re-clustering would silently reassign anonymous IDs under reviewed work.
+    present = {name for (name,) in connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+        " AND name IN ('Annotation', 'ReviewClip')")}
+    for table in sorted(present):
+        if connection.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():
+            raise DataError("identity replacement is blocked: the database already has"
+                            " annotations or review clips tied to these participant IDs")
     stored = dict(connection.execute("SELECT filename, video_id FROM Video"))
 
     def video(values):

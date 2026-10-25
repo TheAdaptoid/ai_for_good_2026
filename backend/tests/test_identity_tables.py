@@ -6,6 +6,7 @@ import pytest
 from analysis_db.contracts import DataError
 from analysis_db.identity_tables import replace_identity_tables
 from analysis_db.storage import connect_database, initialize_database
+from conftest import pre_review_schema_sql
 
 
 def write(path, header, *rows):
@@ -98,3 +99,42 @@ def test_unknown_video_rejected_before_writing(tmp_path, db):
     finally:
         con.close()
     assert snapshot(db) == before
+
+
+DETECTIONS = [[7, "Person_0001", "V0001_F000000010", 1, 2, 30, 40, 0.9],
+              [9, "Person_0002", "V0001_F000000011", 5, 6, 50, 60, 0.8]]
+
+
+@pytest.mark.parametrize("statement", [
+    "INSERT INTO Annotation (video_id, person_id, label_id, start_frame, end_frame, source,"
+    " review_status, created_at, updated_at)"
+    " VALUES (3, 'Person_old', 1, 0, 10, 'AI', 'UNREVIEWED', 'now', 'now')",
+    "INSERT INTO ReviewClip (video_id, start_frame, end_frame, created_at)"
+    " VALUES (3, 0, 10, 'now')",
+])
+def test_refuses_when_review_data_exists(tmp_path, db, statement):
+    con = connect_database(db)
+    con.execute(statement)
+    con.close()
+    before = snapshot(db)
+    tables = write_tables(tmp_path / "Database", DETECTIONS)
+    con = connect_database(db)
+    try:
+        with pytest.raises(DataError, match="annotations or review clips"):
+            replace_identity_tables(con, tables)
+    finally:
+        con.close()
+    assert snapshot(db) == before
+
+
+def test_replacement_works_without_review_tables(tmp_path):
+    path = tmp_path / "six.sqlite"
+    con = connect_database(path)
+    con.executescript(pre_review_schema_sql())
+    con.execute("INSERT INTO Video (video_id, title, filename, file_path)"
+                " VALUES (3, 'Clip', 'clip.mp4', 'data/videos/clip.mp4')")
+    try:
+        counts = replace_identity_tables(con, write_tables(tmp_path / "Database", DETECTIONS))
+    finally:
+        con.close()
+    assert counts["FaceDetection"] == 2

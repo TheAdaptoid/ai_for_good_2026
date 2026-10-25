@@ -166,14 +166,15 @@ sampled_result = classifier.classify(sampled.frames, ["Dancing", "Walking", "Sin
   way to relabel arbitrary checkpoints.
 ## Database
 
-Six tables: `Video` (one row per probed video file), `Frame`, `Person`,
-`FaceDetection` (bbox and detection score), plus `Activity` and `Engagement`,
-which stay empty: classification runs in memory only and nothing in this backend
-writes predictions back.
+Six ingestion tables: `Video` (one row per probed video file), `Frame`, `Person`,
+`FaceDetection` (bbox and detection score), plus `Activity` and `Engagement`, which
+hold **raw per-detection machine signals** (model output, never reviewed or edited).
+Five review tables sit alongside them (see [Review model](#review-model)).
 
 `scripts/init_db.py` creates the schema idempotently from `db/schema.sql`
-(`CREATE TABLE IF NOT EXISTS`). It is **not** a schema migration: an existing
-database is never altered, so delete and re-create the file if the schema changes.
+(`CREATE … IF NOT EXISTS`, `INSERT OR IGNORE`). Schema changes are additive, so running
+it on an existing database **is** the migration: it adds missing tables, indexes,
+triggers, and the starter labels in one transaction and never alters existing rows.
 Foreign keys are enforced on every connection.
 
 Files are stored with **repository-relative paths** (e.g.
@@ -182,6 +183,37 @@ Files are stored with **repository-relative paths** (e.g.
 `--video-dir` are passed as-is to these operations, so defaults are module-derived
 (from the repository layout) while explicit relative arguments resolve against the
 current working directory.
+
+## Review model
+
+Annotations are the single **current state** every view and export reads; the review
+history is a separate, **append-only** audit log.
+
+- `Label`: staff-managed vocabulary, category `activity` or `observation`. 18 starter
+  labels; labels are deactivated (`labels.set_label_active`), never deleted.
+- `Annotation`: one label on a video frame span, optionally for one participant
+  (no participant = group/scene level). Several labels on one moment are several rows.
+  `confidence` is the model's certainty only; `source` (`AI`/`HUMAN`, who produced the
+  current value) and `review_status` (`UNREVIEWED`/`ACCEPTED`/`EDITED`/`REJECTED`/
+  `DEFERRED`, what review has happened) are independent.
+- `ReviewEvent`: one row per human action (`review.create_annotation`, `accept`, `edit`,
+  `reject`, `defer`), written in the same transaction as the annotation change, with
+  previous and resulting values and an opaque non-empty `reviewer_id`. Triggers reject
+  UPDATE and DELETE.
+- `ReviewClip` / `ReviewClipParticipant`: review clips with the participants on screen and
+  an optional review-priority score (unbounded, never a confidence or percentage).
+  Clip cutting and scoring belong to a later pipeline.
+- `annotations.import_machine_output` upserts pipeline output by `import_key`. It only
+  updates `AI`/`UNREVIEWED` annotations and clips holding no reviewed annotation, and it
+  never deletes.
+- Rejected annotations are hidden from default queries and exports.
+
+Export current annotations or the review history (CSV or JSON):
+
+```bash
+uv run python scripts/export_annotations.py --format csv --output ../data/annotations.csv
+uv run python scripts/export_annotations.py --format json --history --output ../data/history.json
+```
 
 ## Ingestion behavior
 
@@ -218,6 +250,8 @@ uv run python scripts/replace_identity.py --tables <run>/Database --db ../data/a
   downstream activity/engagement handoffs join on them.
 - Foreign keys, `PRAGMA integrity_check`, and row counts are verified before commit;
   any failure rolls back and leaves the database unchanged (exit code `1`).
+- Refused once the database holds any annotation or review clip: re-clustering would
+  silently reassign the anonymous IDs that reviewed work refers to.
 
 ## Loading face-expression (engagement) results
 

@@ -1,7 +1,9 @@
 import sqlite3
 from pathlib import Path
 
-from analysis_db.contracts import DataError, DetectionRow, TABLES, VideoMetadata
+from analysis_db.contracts import (
+    DataError, DetectionRow, REVIEW_TABLES, TABLES, VideoMetadata,
+)
 from analysis_db.paths import SCHEMA_PATH
 
 
@@ -42,12 +44,13 @@ def initialize_database(path: Path) -> dict[str, int]:
         connection.close()
 
 
-def assert_schema(connection: sqlite3.Connection) -> None:
+def assert_schema(connection: sqlite3.Connection,
+                  tables: tuple[str, ...] = TABLES) -> None:
     present = {
         name for (name,) in connection.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table'")
     }
-    missing = [table for table in TABLES if table not in present]
+    missing = [table for table in tables if table not in present]
     if missing:
         raise DataError(
             "database is missing tables [" + ", ".join(missing) + "]; "
@@ -156,3 +159,8 @@ def table_counts(connection: sqlite3.Connection) -> dict[str, int]:
         cursor = connection.execute(f"SELECT COUNT(*) FROM {table}")
         counts[table] = cursor.fetchone()[0]
     return counts
+
+
+def review_table_counts(connection: sqlite3.Connection) -> dict[str, int]:
+    return {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in REVIEW_TABLES}

@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 
 TABLES = ("Video", "Frame", "Person", "FaceDetection", "Activity", "Engagement")
+REVIEW_TABLES = ("Label", "ReviewClip", "ReviewClipParticipant", "Annotation", "ReviewEvent")
 
 
 class DataError(ValueError):
@@ -57,3 +59,144 @@ class FileResult:
     inserted: dict[str, int] = field(default_factory=zero_counts)
     skipped: dict[str, int] = field(default_factory=zero_counts)
     error: CsvImportError | None = None
+
+
+class Source(StrEnum):
+    AI = "AI"
+    HUMAN = "HUMAN"
+
+
+class ReviewStatus(StrEnum):
+    UNREVIEWED = "UNREVIEWED"
+    ACCEPTED = "ACCEPTED"
+    EDITED = "EDITED"
+    REJECTED = "REJECTED"
+    DEFERRED = "DEFERRED"
+
+
+class ReviewAction(StrEnum):
+    CREATED = "CREATED"
+    ACCEPTED = "ACCEPTED"
+    EDITED = "EDITED"
+    REJECTED = "REJECTED"
+    DEFERRED = "DEFERRED"
+
+
+class LabelCategory(StrEnum):
+    ACTIVITY = "activity"
+    OBSERVATION = "observation"
+
+
+@dataclass(frozen=True)
+class Label:
+    label_id: int
+    name: str
+    category: LabelCategory
+    description: str | None
+    is_active: bool
+
+
+@dataclass(frozen=True)
+class Annotation:
+    annotation_id: int
+    video_id: int
+    clip_id: int | None
+    person_id: str | None
+    label_id: int
+    label_name: str
+    label_category: LabelCategory
+    start_frame: int
+    end_frame: int
+    start_seconds: float | None  # None when the video's fps is unknown
+    end_seconds: float | None
+    confidence: float | None
+    source: Source
+    review_status: ReviewStatus
+    created_at: str
+    updated_at: str
+
+
+@dataclass(frozen=True)
+class ReviewClip:
+    clip_id: int
+    video_id: int
+    start_frame: int
+    end_frame: int
+    start_seconds: float | None
+    end_seconds: float | None
+    person_ids: tuple[str, ...]
+    priority_score: float | None  # review priority, unbounded; never a model confidence
+    priority_method: str | None
+    created_at: str
+
+
+@dataclass(frozen=True)
+class ReviewEvent:
+    event_id: int
+    annotation_id: int
+    video_id: int
+    action: ReviewAction
+    prev_label_id: int | None
+    new_label_id: int | None
+    prev_start_frame: int | None
+    prev_end_frame: int | None
+    new_start_frame: int | None
+    new_end_frame: int | None
+    prev_person_id: str | None
+    new_person_id: str | None
+    prev_confidence: float | None
+    new_confidence: float | None
+    prev_source: Source | None
+    new_source: Source
+    prev_status: ReviewStatus | None
+    new_status: ReviewStatus
+    reviewer_id: str
+    note: str | None
+    created_at: str
+
+
+@dataclass(frozen=True)
+class ClipInput:
+    import_key: str
+    start_frame: int
+    end_frame: int
+    person_ids: tuple[str, ...] = ()
+    priority_score: float | None = None
+    priority_method: str | None = None
+
+
+@dataclass(frozen=True)
+class AnnotationInput:
+    import_key: str
+    label_id: int
+    start_frame: int
+    end_frame: int
+    confidence: float | None
+    person_id: str | None = None
+    clip_import_key: str | None = None
+
+
+class _Unset:
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET = _Unset()  # distinguishes "leave person unchanged" from "set person to None"
+
+
+@dataclass(frozen=True)
+class AnnotationChanges:
+    label_id: int | None = None
+    start_frame: int | None = None
+    end_frame: int | None = None
+    person_id: str | None | _Unset = UNSET
+
+
+@dataclass(frozen=True)
+class ImportResult:
+    inserted: int = 0
+    updated: int = 0
+    skipped_protected: int = 0
+    clips_inserted: int = 0
+    clips_updated: int = 0
+    clips_skipped_protected: int = 0

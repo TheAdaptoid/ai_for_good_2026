@@ -7,8 +7,9 @@ import av
 import numpy as np
 import pytest
 
+from analysis_db import storage
 from analysis_db.contracts import DetectionRow
-from analysis_db.storage import initialize_database
+from analysis_db.storage import connect_database, initialize_database
 
 
 def patterned_frames(count):
@@ -121,3 +122,48 @@ def make_row():
     base = DetectionRow(2, "Clip", "clip.mp4", 0, "frame-0", "person-1",
                         0.0, 1.0, 2.0, 10.0, 20.0, 0.9)
     return lambda **changes: replace(base, **changes)
+
+
+@pytest.fixture
+def review_db(tmp_path):
+    """Initialized database with two videos and three anonymous participants."""
+    db_path = tmp_path / "review.sqlite"
+    initialize_database(db_path)
+    connection = connect_database(db_path, must_exist=True)
+    connection.executemany(
+        "INSERT INTO Video (video_id, title, filename, file_path, duration_seconds, fps)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        [(1, "one", "one.mp4", "data/videos/one.mp4", 100.0, 23.976),  # 2398 frames
+         (2, "two", "two.mp4", "data/videos/two.mp4", 50.0, 24.0)])
+    connection.executemany("INSERT INTO Person (person_id) VALUES (?)",
+                           [("Person_0001",), ("Person_0002",), ("Person_0003",)])
+    try:
+        yield connection
+    finally:
+        connection.close()
+
+
+@pytest.fixture
+def insert_ai_annotation():
+    """Insert an AI/UNREVIEWED annotation by direct SQL and return its id."""
+    counter = iter(range(1, 1_000_000))
+
+    def insert(connection, **overrides):
+        values = {"video_id": 1, "clip_id": None, "person_id": "Person_0001", "label_id": 1,
+                  "start_frame": 100, "end_frame": 200, "confidence": 0.6, "source": "AI",
+                  "review_status": "UNREVIEWED", "import_key": f"test:{next(counter)}",
+                  "created_at": "2026-10-24T00:00:00Z", "updated_at": "2026-10-24T00:00:00Z"}
+        values |= overrides
+        columns = ", ".join(values)
+        marks = ", ".join("?" for _ in values)
+        cursor = connection.execute(
+            f"INSERT INTO Annotation ({columns}) VALUES ({marks})", tuple(values.values()))
+        return cursor.lastrowid
+
+    return insert
+
+
+def pre_review_schema_sql():
+    """The six-table schema as it was before Spec 001: everything before the review section."""
+    text = storage.SCHEMA_PATH.read_text(encoding="utf-8")
+    return text.split("-- Review model", 1)[0] + "COMMIT;\n"
