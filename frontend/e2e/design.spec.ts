@@ -84,6 +84,8 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     const name = `${width}-${colorScheme}`
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Start feedback mode' })).toBeVisible()
+    await expect(page.locator('agentation-toolbar [data-agentation-root]')).toHaveAttribute('data-agentation-theme', 'light')
     await page.keyboard.press('Tab')
     await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused()
     await page.keyboard.press('Enter')

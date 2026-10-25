@@ -14,6 +14,30 @@ npm run dev        # http://127.0.0.1:5173 (proxies /api to http://127.0.0.1:800
 
 Sign in with an account created by `backend/scripts/staff.py create <username>`.
 
+## Data source
+
+The staff screens fetch `/api` through FastAPI, which queries the SQLite file selected by the
+backend's `--db` option (or `TPA_DB`). The default is `data/analysis.local.sqlite`; an explicit
+`--db ../data/demo.local.sqlite` uses that database instead. Frontend test fixtures are used
+only by Vitest/Playwright; they are not loaded as application data or used as API fallbacks.
+
+## Agentation feedback
+
+The development app includes the Agentation toolbar, connected to the local MCP server at
+`http://localhost:4747`. Open the feedback button at the bottom right, select a UI element,
+and add a note. The connected agent can read and acknowledge those notes. Feedback is separate
+from participant annotations and never writes to the application's SQLite database.
+
+Keep the MCP server running while annotating. If needed, start the already configured server
+with `npx agentation-mcp server`. Use the browser toolbar on desktop; its documentation is at
+https://www.agentation.com/mcp. The toolbar starts light and is excluded from production builds.
+It sends text/DOM context to localhost, not screenshots or participant footage. Do not put
+participant media into notes or configure external webhooks.
+
+Agentation 3.1.2 is a development-only dependency under PolyForm Shield 1.0.0 (source-available,
+with restrictions on competing products); its license is included in the installed package.
+It is not part of the shipping application bundle.
+
 ## Checks
 
 ```bash

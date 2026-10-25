@@ -78,3 +78,22 @@ The user requested white/light UI throughout. Removed the automatic dark palette
 browser variant now verifies that every captured screen still uses a light color scheme and
 white navigation/login surfaces. The original validation above describes the initial pass;
 dark mode is no longer a shipping option.
+
+## Follow-up: database verification and Agentation
+
+Verified the shipping path: React API client → Vite `/api` proxy → FastAPI request database
+connection → SQLite catalog/current-state queries. There is no shipping mock-data fallback.
+The running service explicitly selects `data/demo.local.sqlite`; read-only inspection found
+12 videos, 100 anonymous participants, 123 review clips, and 329 AI/unreviewed annotations, with
+an import recorded as `tpa-local-analysis` version `1.0.0`. No application database was changed.
+
+Added Agentation 3.1.2 as a development-only dependency with a localhost:4747 MCP endpoint and
+light toolbar initialization. Production bundle inspection finds no Agentation code. The
+dependency's PolyForm Shield license and local text-only workflow are documented in the
+frontend README. A synthetic sign-in-screen feedback note made the browser → local server →
+connected MCP trip successfully and was removed after verification. No media was captured.
+
+Validation: 25 Vitest tests, 15 privacy-safe Playwright tests (including toolbar presence/light
+appearance), 38 catalog/API tests, typecheck, lint, production build, and shipping-source
+Impeccable detection all pass. The backend tests report one existing Starlette/AnyIO deprecation
+warning. Spec 005 implementation and the previously unfinished files remain untouched.
