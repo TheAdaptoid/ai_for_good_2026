@@ -219,6 +219,24 @@ uv run python scripts/replace_identity.py --tables <run>/Database --db ../data/a
 - Foreign keys, `PRAGMA integrity_check`, and row counts are verified before commit;
   any failure rolls back and leaves the database unchanged (exit code `1`).
 
+## Loading face-expression (engagement) results
+
+`scripts/load_engagement.py` replaces `Engagement` with the per-detection CSV written by
+`notebooks/face_expression_observation_pipeline.ipynb`
+(`face_expression_observations_from_videos.csv`; keep it in the gitignored `data/csv/`):
+
+```bash
+uv run python scripts/load_engagement.py --input ../data/csv/face_expression_observations_from_videos.csv --db ../data/analysis.local.sqlite
+```
+
+- Uses `detection_id`, `positive_score`, `neutral_score`, `negative_score`; other columns stay in the CSV.
+- Rows with all three scores empty (observations the notebook logged as errors) are skipped and counted.
+- Every `detection_id` must exist in `FaceDetection`; duplicates or scores outside 0–1 abort before any write.
+  After a re-clustering run that drops detections (IDs and boxes of the kept ones unchanged), pass
+  `--skip-missing-detections` to reuse the existing scores for the kept detections; skipped rows are counted.
+- One transaction with foreign-key, integrity, and row-count checks; any failure leaves the database unchanged.
+- Scores are derived visual-expression classifications, not measurements of internal emotional state.
+
 ## Exit codes and output
 
 - `0` — every input file committed.
