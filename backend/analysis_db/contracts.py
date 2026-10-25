@@ -44,6 +44,17 @@ class VideoMetadata:
     height: int | None = None
 
 
+@dataclass(frozen=True)
+class ClipInfo:
+    clip_id: int
+    video_id: int
+    start_time_seconds: float
+    end_time_seconds: float
+    person_ids: tuple[str, ...]
+    created_at: str
+    file_path: str
+
+
 def zero_counts() -> dict[str, int]:
     return dict.fromkeys(TABLES, 0)
 

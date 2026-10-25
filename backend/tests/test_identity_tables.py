@@ -100,3 +100,23 @@ def test_unknown_video_rejected_before_writing(tmp_path, db):
     finally:
         con.close()
     assert snapshot(db) == before
+
+
+@pytest.mark.parametrize("frozen_by", ["audit", "clips", "empty_clips"])
+def test_identity_replacement_preserves_history_and_finalized_clips(tmp_path, db, frozen_by):
+    from analysis_db.clips import generate_clips
+    from analysis_db.corrections import correct_activity
+    tables = write_tables(tmp_path / "Database", [])
+    con = connect_database(db)
+    try:
+        if frozen_by == "audit":
+            correct_activity(con, 1, "Writing")
+        else:
+            con.execute("UPDATE Video SET duration_seconds=10")
+            generate_clips(con, 3, persistence_frames=1 if frozen_by == "clips" else 5)
+        before = snapshot(db)
+        with pytest.raises(DataError, match="history|finalized"):
+            replace_identity_tables(con, tables)
+        assert snapshot(db) == before
+    finally:
+        con.close()

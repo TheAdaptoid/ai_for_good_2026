@@ -12,8 +12,8 @@ from analysis_db.storage import initialize_database  # noqa: E402
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Create (or finish creating) the six-table analysis database."
-                    " Creation is idempotent; an existing schema is left unchanged.")
+        description="Create the analysis database and add audit/clip tables."
+                    " Initialization is idempotent and preserves existing data.")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB,
                         help="database file to initialize (default: %(default)s)")
     return parser
