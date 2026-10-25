@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 
 from analysis_db.contracts import (
-    DataError, DetectionRow, REVIEW_TABLES, TABLES, VideoMetadata,
+    DataError, DetectionRow, REVIEW_TABLES, STAFF_TABLES, TABLES, VideoMetadata,
 )
 from analysis_db.paths import SCHEMA_PATH
 
@@ -164,3 +164,8 @@ def table_counts(connection: sqlite3.Connection) -> dict[str, int]:
 def review_table_counts(connection: sqlite3.Connection) -> dict[str, int]:
     return {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
             for table in REVIEW_TABLES}
+
+
+def staff_table_counts(connection: sqlite3.Connection) -> dict[str, int]:
+    return {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in STAFF_TABLES}

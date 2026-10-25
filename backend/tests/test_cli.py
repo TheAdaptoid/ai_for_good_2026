@@ -94,7 +94,7 @@ def test_init_cli_reports_review_table_counts(tmp_path):
     lines = result.stdout.splitlines()[1:]
     assert lines == [f"  {table}: 0" for table in EXPECTED_TABLES] + [
         "  Label: 18", "  ReviewClip: 0", "  ReviewClipParticipant: 0",
-        "  Annotation: 0", "  ReviewEvent: 0"]
+        "  Annotation: 0", "  ReviewEvent: 0", "  StaffAccount: 0", "  StaffSession: 0"]
 
 def test_ingest_cli_rejected_file_reports_error_and_continues(tmp_path):
     with repo_data_root() as root:

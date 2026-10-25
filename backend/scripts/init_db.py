@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from analysis_db.contracts import DataError  # noqa: E402
 from analysis_db.paths import DEFAULT_DB  # noqa: E402
 from analysis_db.storage import (  # noqa: E402
-    connect_database, initialize_database, review_table_counts,
+    connect_database, initialize_database, review_table_counts, staff_table_counts,
 )
 
 
@@ -27,7 +27,7 @@ def main(argv: list[str] | None = None) -> int:
         counts = initialize_database(args.db)
         connection = connect_database(args.db, must_exist=True)
         try:
-            counts |= review_table_counts(connection)
+            counts |= review_table_counts(connection) | staff_table_counts(connection)
         finally:
             connection.close()
     except (DataError, OSError, sqlite3.Error) as exc:

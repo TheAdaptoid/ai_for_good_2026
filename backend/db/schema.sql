@@ -160,4 +160,20 @@ CREATE TRIGGER IF NOT EXISTS review_event_no_delete BEFORE DELETE ON ReviewEvent
 BEGIN
     SELECT RAISE(ABORT, 'review history is append-only');
 END;
+
+-- Staff access (Spec 002). Accounts and sessions belong in the git-ignored working database.
+CREATE TABLE IF NOT EXISTS StaffAccount (
+    staff_id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE CHECK (length(trim(username)) > 0),
+    password_hash TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS StaffSession (
+    token_hash TEXT NOT NULL PRIMARY KEY,
+    staff_id INTEGER NOT NULL REFERENCES StaffAccount(staff_id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_staff_session_staff ON StaffSession(staff_id);
 COMMIT;

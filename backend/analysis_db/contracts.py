@@ -200,3 +200,66 @@ class ImportResult:
     clips_inserted: int = 0
     clips_updated: int = 0
     clips_skipped_protected: int = 0
+
+
+STAFF_TABLES = ("StaffAccount", "StaffSession")
+
+
+@dataclass(frozen=True)
+class StaffAccount:
+    staff_id: int
+    username: str  # doubles as the opaque reviewer_id in review history
+    is_active: bool
+    created_at: str
+
+
+@dataclass(frozen=True)
+class VideoSummary:
+    video_id: int
+    title: str
+    filename: str
+    duration_seconds: float | None
+    fps: float | None
+    frame_count: int | None
+    participant_count: int
+    detection_count: int
+    annotation_counts: dict[str, int]  # every ReviewStatus, zeros included
+    clip_count: int
+
+
+@dataclass(frozen=True)
+class PresenceInterval:
+    start_seconds: float
+    end_seconds: float
+    detection_count: int
+
+
+@dataclass(frozen=True)
+class VideoParticipant:
+    person_id: str
+    first_seconds: float
+    last_seconds: float
+    detection_count: int
+    intervals: tuple[PresenceInterval, ...]
+
+
+@dataclass(frozen=True)
+class ParticipantSummary:
+    person_id: str
+    video_count: int
+    detection_count: int
+
+
+@dataclass(frozen=True)
+class ParticipantVideo:
+    video_id: int
+    title: str
+    first_seconds: float
+    last_seconds: float
+    detection_count: int
+
+
+@dataclass(frozen=True)
+class ParticipantDetail:
+    person_id: str
+    videos: tuple[ParticipantVideo, ...]

@@ -280,3 +280,51 @@ Spec 002 may introduce additional segmentation boundaries when needed to keep cl
 Review priority remains separate from annotation confidence.
 
 The proposed priority heuristic involving participant count and positive-affect evidence is intentionally left for Spec 002 to finalize.
+
+---
+
+## D018 — Application Before Clip Pipeline
+
+Decided by the human on 2026-10-24.
+
+The clip and annotation generation pipeline (roadmap 002) is deferred. The service, staff sign-in,
+and the React dashboard/video/participant/review screens are built first, against existing data:
+videos, participants, face detections, and the Spec 001 review tables, which stay empty until the
+pipeline runs.
+
+Screens must treat empty clip and annotation lists as a normal state, not an error.
+
+Until clips exist, participant presence derived from face detections (computed on read, never
+stored) is the timeline content for the video and participant views.
+
+---
+
+## D019 — Working Database
+
+The running application uses `data/analysis.local.sqlite` (git-ignored), not the tracked
+`data/analysis.sqlite`. It can be overridden with `TPA_DB` or `--db`.
+
+Staff accounts, sessions, annotations, and review history therefore never enter the repository. The
+tracked file remains the seed of machine signals.
+
+---
+
+## D020 — Staff Authentication
+
+Local accounts only, managed with the `backend/scripts/staff.py` CLI. There is no self-registration
+and no cloud identity provider.
+
+- passwords: Argon2id (argon2-cffi)
+- sessions: random token in an HttpOnly, SameSite=Strict cookie (`tpa_session`); only its SHA-256
+  is stored; 12-hour lifetime; sign-out, disabling, and password reset end sessions
+- every endpoint except sign-in and health requires a session
+- `reviewer_id` in review history is the signed-in username; clients cannot supply it
+- no roles yet: all active staff have the same permissions
+
+---
+
+## D021 — macOS Torch Build
+
+`torch` stays pinned at `2.8.0`. The CUDA 12.8 index applies only when `sys_platform != 'darwin'`,
+so macOS installs the standard CPU/MPS wheel and `uv sync --locked` works on team Macs (Constitution
+"code MUST run on CPU"). CUDA validation still requires Linux.

@@ -164,6 +164,42 @@ sampled_result = classifier.classify(sampled.frames, ["Dancing", "Walking", "Sin
 - **Direct model paths.** `model_path=<dir>` must contain exactly the pinned
   revision's assets (`config.json`, tokenizer, `model.safetensors`); it is not a
   way to relabel arbitrary checkpoints.
+## Application service (staff sign-in and API)
+
+`api/` is a FastAPI layer over `analysis_db`. Every endpoint except sign-in and `/api/health`
+needs a signed-in staff account. The service writes accounts, sessions, and review history
+to a **git-ignored working database**, `../data/analysis.local.sqlite`, so the tracked
+`../data/analysis.sqlite` stays a read-only seed.
+
+```bash
+cp -n ../data/analysis.sqlite ../data/analysis.local.sqlite   # one-time working copy
+uv run python scripts/init_db.py --db ../data/analysis.local.sqlite
+uv run python scripts/staff.py create <username>       # prompts for a password (min 8 chars)
+uv run python scripts/serve.py                          # http://127.0.0.1:8000/api/docs
+```
+
+- `scripts/staff.py create|disable|enable|reset-password <username>` is the only way to
+  manage accounts. Disabling or resetting a password ends that account's sessions.
+- `scripts/serve.py` binds to `127.0.0.1:8000` by default. Use `--host` to expose it beyond this
+  machine, `--db` (or `TPA_DB`) to choose another database, and `--video-dir` to change the only
+  directory videos are streamed from (default `../data/videos`).
+- Sessions are an HttpOnly, SameSite=Strict cookie that lasts 12 hours. Passwords are stored only
+  as Argon2 hashes and session tokens only as SHA-256 digests.
+- The reviewer recorded in review history is always the signed-in username. Request bodies
+  that include `reviewer_id` are rejected.
+- Endpoints (OpenAPI at `/api/openapi.json`): `auth/login|logout|me`; `videos`,
+  `videos/{id}`, `videos/{id}/participants` (presence intervals from detections, with gaps of
+  2 s or less merged), `videos/{id}/stream` (supports byte ranges); `participants`,
+  `participants/{person_id}`; `annotations` (Spec 001 filters), `annotations/{id}`,
+  `annotations/{id}/history`, `POST annotations`, `POST annotations/{id}/accept|reject|defer|edit`;
+  `clips?order=time|priority`; `labels`; `exports/annotations|history?format=csv|json`.
+
+Review clips and AI annotations stay empty until the clip and annotation pipeline (a later
+feature) runs. Every list then returns an empty array.
+
+On macOS, `uv sync` installs the CPU/MPS build of the pinned `torch==2.8.0`. Linux and Windows
+keep the CUDA 12.8 build.
+
 ## Database
 
 Six ingestion tables: `Video` (one row per probed video file), `Frame`, `Person`,

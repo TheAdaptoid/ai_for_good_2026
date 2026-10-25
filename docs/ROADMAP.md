@@ -19,11 +19,23 @@ Specify
 
 Later features are specified using the actual completed implementation of their dependencies. Detailed future specifications are intentionally not written far in advance.
 
+## Current Delivery Order (2026-10-24, see D018)
+
+Roadmap entries keep their numbers below. Spec directories are numbered in the order they are
+built:
+
+| Spec dir | Roadmap item | Status |
+|---|---|---|
+| `001-annotation-data-model` | 001 | COMMITTED |
+| `002-fastapi-service` | 003 + 004 (service and staff auth combined) | COMMITTED |
+| next | 005 + 006 + 007 + 008 (React app: dashboard, video, participant, review) | PLANNED |
+| later | 002 clip and annotation generation pipeline | DEFERRED by the human |
+
 ---
 
 ## 001 — Review and Annotation Data Model
 
-Status: IN PROGRESS / NEAR CONVERGENCE
+Status: COMMITTED (converged)
 
 Provides:
 
@@ -48,6 +60,8 @@ Completion condition:
 ---
 
 ## 002 — Clip and Annotation Generation Pipeline
+
+Status: DEFERRED. The human chose to build the application first (D018).
 
 Depends on: 001
 
@@ -85,7 +99,9 @@ Outputs are consumed by FastAPI and React features.
 
 ## 003 — FastAPI Application Service
 
-Depends on: 001, 002
+Status: COMMITTED as spec `002-fastapi-service`, together with 004. It does not need 002; clip and annotation lists are empty until 002 runs.
+
+Depends on: 001
 
 Purpose:
 
@@ -108,6 +124,8 @@ Business rules remain in domain modules rather than endpoints.
 ---
 
 ## 004 — Staff Authentication and Authorization
+
+Status: COMMITTED, combined into spec `002-fastapi-service` (Constitution VIII forbids an unauthenticated service).
 
 Depends on: 003
 
