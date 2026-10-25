@@ -1,0 +1,39 @@
+{
+  "name": "tpa-review",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "lint": "oxlint src",
+    "test": "vitest run",
+    "preview": "vite preview",
+    "gen:api": "cd ../backend && uv run --locked python scripts/openapi.py > ../frontend/openapi.json && cd ../frontend && openapi-typescript openapi.json -o src/api/schema.d.ts && rm openapi.json",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router-dom": "7.18.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "agentation": "3.1.2",
+    "jsdom": "29.1.1",
+    "openapi-typescript": "7.13.0",
+    "oxlint": "1.89.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "vitest": "4.1.12"
+  }
+}

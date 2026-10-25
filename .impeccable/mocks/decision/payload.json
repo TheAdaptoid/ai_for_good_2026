@@ -1,0 +1,108 @@
+{
+  "title": "Choose the visual world for TPA Video Review",
+  "question": "The roll assigned the Theater Program. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "kind": "assigned",
+      "label": "Theater Program",
+      "kicker": "THE ROLL",
+      "lineage": "the printed program handed out at a TPA showcase night",
+      "thesis": "Every video reads like the evening's program: a masthead, a scene listing, and a cast list where each anonymous participant has a line.",
+      "palette": ["#201C25", "#F8F7F8", "#C21866", "#631DA8", "#F25E0D"],
+      "materials": ["program masthead band in TPA ink", "Archivo at program widths", "dot-leader cast and scene listings"],
+      "viewport": "Ink masthead with nav; under it the video title set like a program cover line, the player, then the timeline whose row labels are a cast list (Person_0001 ······ 0:00–2:28) and whose clip row is the scene listing; review panel at right.",
+      "risk": "If the dot leaders and widths are set timidly it collapses into a plain admin table with a dark header.",
+      "raised": [
+        {"from": "challenger-console", "raise": "Reject stands apart from Accept, Edit and Defer with deliberate space; panels divide by hairline rules, never shadows."},
+        {"from": "challenger-acetate", "raise": "One text size does the body work; hierarchy comes from Archivo's weight and width axes, not a ladder of sizes."},
+        {"from": "challenger-streaming", "raise": "Selecting a participant or clip lifts its timeline row and dims the rest, so the one in focus leads."},
+        {"from": "challenger-airport", "raise": "TPA orange has exactly one job: awaiting review. Nothing else on any screen is orange."},
+        {"from": "challenger-jcard", "raise": "Every running time sits right-aligned in tabular figures, tight to its margin, like a program's scene timings."},
+        {"from": "challenger-ikeda", "raise": "Times, counts and scores print in full ink, never as faded gray."}
+      ],
+      "html": ".impeccable/mocks/decision/assigned.html"
+    },
+    {
+      "id": "model-pick",
+      "kind": "pick",
+      "label": "Ensemble Score",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "a band or choir arrangement with one staff per performer",
+      "thesis": "The timeline is an ensemble score: one staff per participant, boxed rehearsal letters for review clips, bar numbers for time.",
+      "palette": ["#1B252F", "#F1F1EB", "#7851B9", "#E2498A", "#F25E0D"],
+      "materials": ["staff-line rows", "boxed rehearsal letters", "engraved numerals"],
+      "viewport": "Top nav; the player; beneath it a score system with participant staves, rehearsal-letter clip markers (A, B, C…) and annotations sitting on their staff.",
+      "risk": "The most literal arts metaphor of my list; dance, theater and visual-art staff may read music notation as someone else's world.",
+      "html": ".impeccable/mocks/decision/model-pick.html"
+    },
+    {
+      "id": "challenger-console", "kind": "challenger", "catalogId": "digital-design-canon-dark-first-developer-console",
+      "label": "Dark Developer Console", "verdict": "declined", "lineage": "graphite developer tools",
+      "thesis": "Graphite panels split by hairline seams with syntax-colored state.", "palette": ["#1E1F22", "#2B2D31", "#57A6FF", "#E5C07B"],
+      "materials": ["graphite panels", "hairline seams"], "viewport": "Tiled persistent panels.",
+      "case": "Fuses poorly: a dark monitoring console over footage of teens reads as surveillance.", "risk": "Cold and clinical for this audience.",
+      "kept": "Reject isolated by deliberate space; hairlines instead of shadows.",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-dark-first-developer-console-hero.webp"
+    },
+    {
+      "id": "challenger-acetate", "kind": "challenger", "catalogId": "rw-manual-acetate-tab-board",
+      "label": "Acetate Tab Manual", "verdict": "declined", "lineage": "boxed-software manuals",
+      "thesis": "Section-hued divider boards under clear acetate leaves.", "palette": ["#E8702A", "#F2C12E", "#2E7DD1", "#F7F4EE"],
+      "materials": ["milk acetate", "tab rail"], "viewport": "A stepped tab rail down the fore edge.",
+      "case": "Fuses poorly: staff have no tie to software manuals and the tab rail fights standard navigation.", "risk": "Costume over function.",
+      "kept": "One text size does the work.",
+      "hero": "https://impeccable.style/worlds/cards/rw-manual-acetate-tab-board-hero.webp"
+    },
+    {
+      "id": "challenger-streaming", "kind": "challenger", "catalogId": "pop-culture-shelf-streaming-title-card-wall",
+      "label": "Streaming Title Wall", "verdict": "declined", "lineage": "streaming service home screens",
+      "thesis": "Rows of poster tiles; the focused one grows and the rest dim.", "palette": ["#141414", "#E50914", "#FFFFFF"],
+      "materials": ["poster tiles", "focus lift"], "viewport": "Horizontally scrolling rows of video tiles.",
+      "case": "Fuses poorly: it needs footage thumbnails as its only color and hides metadata until focus.", "risk": "Entertainment framing for a review job.",
+      "kept": "The row in focus leads and the rest dim.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-streaming-title-card-wall-hero.webp"
+    },
+    {
+      "id": "challenger-airport", "kind": "challenger", "catalogId": "wayfinding-cartography-signage-terminal-yellow-wayfinding",
+      "label": "Airport Wayfinding", "verdict": "declined", "lineage": "terminal signage bands",
+      "thesis": "Yellow bands that mean one thing: the way to go.", "palette": ["#FFD100", "#000000", "#FFFFFF"],
+      "materials": ["overhead sign bands", "pictograms"], "viewport": "A chain of decision bands.",
+      "case": "Fuses poorly: no audience tie, and monumental signage is loud for long sessions.", "risk": "Shouts at a calm task.",
+      "kept": "One hue, one job.",
+      "hero": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-terminal-yellow-wayfinding-hero.webp"
+    },
+    {
+      "id": "challenger-jcard", "kind": "challenger", "catalogId": "vernacular-ephemera-cassette-j-card",
+      "label": "Mixtape J-Card", "verdict": "declined", "lineage": "hand-lettered cassette inlays",
+      "thesis": "Timed tracklists in ballpoint on lined inlay stock.", "palette": ["#2B4C9B", "#FFFFFF", "#C8102E"],
+      "materials": ["ballpoint", "lined inlay"], "viewport": "Side A / side B tracklists.",
+      "case": "Fuses poorly: hand lettering undercuts staff authority on a working screen.", "risk": "Reads as a craft project.",
+      "kept": "Running times right-aligned, tabular, tight to the margin.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card-hero.webp"
+    },
+    {
+      "id": "challenger-ikeda", "kind": "challenger", "catalogId": "ikeda-datamatics",
+      "label": "Datamatics Field", "verdict": "declined", "lineage": "data-sublime installation art",
+      "thesis": "Pure black and white barcode fields and sine lattices.", "palette": ["#000000", "#FFFFFF"],
+      "materials": ["barcode bars", "monospace data"], "viewport": "A strobing data field.",
+      "case": "Fuses poorly: cold, machine-first, and the opposite of humans-decide.", "risk": "Surveillance aesthetic.",
+      "kept": "Numbers in full ink, never gray.",
+      "hero": "https://impeccable.style/worlds/cards/ikeda-datamatics-hero.webp"
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code"},
+  "canon": true,
+  "canonCard": {
+    "kind": "canon",
+    "label": "The category standard",
+    "thesis": "A clean light review tool in the vein of modern video-review SaaS, executed impeccably.",
+    "palette": ["#FFFFFF", "#111827", "#4F46E5"],
+    "materials": ["neutral panels", "single accent"],
+    "viewport": "Left sidebar, player, timeline, inspector panel.",
+    "risk": "Indistinguishable from any SaaS dashboard, the look you asked to avoid.",
+    "html": ".impeccable/mocks/decision/canon.html"
+  },
+  "steer": true
+}

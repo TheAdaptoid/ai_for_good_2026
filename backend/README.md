@@ -165,6 +165,98 @@ sampled_result = classifier.classify(sampled.frames, ["Dancing", "Walking", "Sin
 - **Direct model paths.** `model_path=<dir>` must contain exactly the pinned
   revision's assets (`config.json`, tokenizer, `model.safetensors`); it is not a
   way to relabel arbitrary checkpoints.
+## Application service (staff sign-in and API)
+
+`api/` is a FastAPI layer over `analysis_db`. Every endpoint except sign-in and `/api/health`
+needs a signed-in staff account. The service reads analysis records and writes accounts,
+sessions, and review history in `../data/analysis.sqlite` by default. Back up this database
+before initialization or replacement. Keep database changes containing local credentials
+and participant/review records out of Git commits.
+
+```bash
+uv run python scripts/init_db.py --db ../data/analysis.sqlite
+uv run python scripts/staff.py create <username>       # prompts for a password (min 8 chars)
+uv run python scripts/serve.py                          # http://127.0.0.1:8000/api/docs
+```
+
+- `scripts/staff.py create|disable|enable|reset-password <username>` is the only way to
+  manage accounts. Disabling or resetting a password ends that account's sessions.
+- `scripts/serve.py` binds to `127.0.0.1:8000` by default. Use `--host` to expose it beyond this
+  machine, `--db` (or `TPA_DB`) to choose another database, and `--video-dir` to change the only
+  directory videos are streamed from (default `../data/videos`).
+- Sessions are an HttpOnly, SameSite=Strict cookie that lasts 12 hours. Passwords are stored only
+  as Argon2 hashes and session tokens only as SHA-256 digests.
+- The reviewer recorded in review history is always the signed-in username. Request bodies
+  that include `reviewer_id` are rejected.
+- Endpoints (OpenAPI at `/api/openapi.json`): `auth/login|logout|me`; `videos`,
+  `videos/{id}`, `videos/{id}/participants` (presence intervals from detections, with gaps of
+  2 s or less merged), `videos/{id}/stream` (supports byte ranges); `participants`,
+  `participants/{person_id}`; `annotations` (Spec 001 filters), `annotations/{id}`,
+  `annotations/{id}/history`, `POST annotations`, `POST annotations/{id}/accept|reject|defer|edit`;
+  `clips?order=time|priority`; `labels`; `exports/annotations|history?format=csv|json`.
+
+Stored analysis is also exposed through authenticated, read-only endpoints:
+
+- `person-clips?video_id=...&person_id=...&limit=...&offset=...` reads `Clip`/`ClipPerson`,
+  ordered by video and time. Either filter and pagination are optional; limit is 1–1000.
+- `person-clips/{id}` returns the stored boundaries in seconds and actual participant IDs.
+- `person-clips/{id}/summary` reuses the live current-label and visible-affect aggregation
+  described under audited corrections below. It exposes neither filesystem paths nor media.
+- `exports/database/{dataset}?format=csv|json`, where dataset is `clips`, `activity`,
+  `engagement`, `activity-history`, `engagement-history`, or `clip-review-history`, reads the corresponding current
+  analysis/audit records. CSV headers are retained for empty datasets; authentication tables
+  are never exportable. Video summaries include `person_clip_count` separately from the
+  existing review-suggestion `clip_count`.
+
+These reads do not generate clips, run models, populate review tables, or alter analysis records.
+
+Stored clips carry their own `review_status` (`UNREVIEWED`, `ACCEPTED`, `EDITED`, `DEFERRED`).
+`POST person-clips/{id}/accept` and `/defer` change only that status. `POST person-clips/{id}/edit`
+takes an active activity label and/or all three visible-affect scores: it relabels every Activity
+window overlapping the clip and sets each member's Engagement scores inside the clip, through the
+audited corrections, then marks the clip `EDITED`. Windows straddling a clip boundary are shared
+with the neighbouring clip. Every action appends a `ClipReviewEvent` with the signed-in reviewer,
+in the same transaction. `scripts/init_db.py` adds the column to older databases.
+Raw signals have no staff review status and no computed review priority. Existing staff
+annotation/review APIs retain their behavior and separate ID namespace.
+
+Stored clip responses expose `mean_positive_score` and `impact_score`, calculated on each read.
+The user-approved impact formula is `ln(1 + clip seconds / 3) × 1.5^N × mean positive score` (D031), with N counting distinct
+ClipPerson members and the mean using available same-video member observations in the clip's
+half-open interval. Missing observations produce null scores; measured zero remains valid.
+The frontend selects the top ten scored clips per video. Summaries use the same formula and
+current corrected scores. No score column or schema migration is introduced. Video summaries
+also expose `human_annotation_count`: human-sourced staff annotations plus distinct Activity
+and Engagement records with correction audits. Repeated edits count each record once;
+acceptance or deferral alone does not count as a human modification.
+
+Review clips and AI annotations stay empty until the clip and annotation pipeline (a later
+feature) runs. Every list then returns an empty array.
+
+On macOS, `uv sync` installs the CPU/MPS build of the pinned `torch==2.8.0`. Linux and Windows
+keep the CUDA 12.8 build.
+
+## Importing pipeline output (Spec 004)
+
+The service shows review clips and AI annotations only after a pipeline's output file has been
+imported. Nothing in this repository generates that output yet. Clip segmentation, activity
+inference, and affect aggregation are a later feature.
+
+```bash
+uv run python scripts/import_pipeline_output.py --input <run>.json   # --db defaults to the working DB
+```
+
+- Format `tpa-review-import/1`: see `specs/004-clip-annotation-pipeline/contracts/import-format.md`.
+  Videos are referenced by filename and labels by name and category. Positions are frames.
+- The whole file is validated first and stored in one transaction, or not at all. Imported
+  annotations are `source = AI`, `review_status = UNREVIEWED`. Re-imports upsert by key.
+  Reviewed annotations, and clips holding them, are never changed. Nothing is ever deleted.
+- Each successful import is recorded as an `ImportRun` (pipeline, version, models, file hash,
+  counts). It is visible on the dashboard and at `GET /api/imports`.
+- Future generation stages implement the Protocols in `pipeline/stages.py`. They read signals
+  with `pipeline.signals.load_video_signals` and turn proposals into a file with
+  `pipeline.builder.build_import_file`, which derives deterministic keys.
+
 ## Frame-linked activity benchmark
 
 Use a local working copy of the database. Create it once with SQLite's backup
@@ -302,6 +394,9 @@ Six tables: `Video` (one row per probed video file), `Frame`, `Person`,
 frame), and `Engagement` (facial-expression scores per detection). The supplied
 database has engagement results. The activity runner writes only Activity.
 
+Five review tables sit alongside them (see [Review model](#review-model)).
+Review-table initialization also adds missing starter labels with `INSERT OR IGNORE`, preserving existing rows.
+
 `scripts/init_db.py` creates the core schema from `db/schema.sql` and installs
 the additive audit/clip extension from `db/audit_clips.sql`. Run it on an existing
 database to add those tables, indexes, and triggers without rebuilding or removing
@@ -403,12 +498,47 @@ The existing `get_clip(detection_id)` still returns its original 32-frame window
 
 See [`db/README.md`](db/README.md) for extension structures and lifecycle details.
 
+The signal loader reads both legacy per-detection and new frame-linked Activity layouts.
+Frame-linked results are shared only by detections at their center frame; their time windows
+are converted to frame positions using the video's FPS. Loading never migrates or writes data.
+
 Files are stored with **repository-relative paths** (e.g.
 `data/videos/<name>.mp4`); videos are matched by **exact original filename**
 (basename, case-sensitive) only under `--video-dir`. `--input`, `--db`, and
 `--video-dir` are passed as-is to these operations, so defaults are module-derived
 (from the repository layout) while explicit relative arguments resolve against the
 current working directory.
+
+## Review model
+
+Annotations are the single **current state** every view and export reads; the review
+history is a separate, **append-only** audit log.
+
+- `Label`: staff-managed vocabulary, category `activity` or `observation`. 18 starter
+  labels; labels are deactivated (`labels.set_label_active`), never deleted.
+- `Annotation`: one label on a video frame span, optionally for one participant
+  (no participant = group/scene level). Several labels on one moment are several rows.
+  `confidence` is the model's certainty only; `source` (`AI`/`HUMAN`, who produced the
+  current value) and `review_status` (`UNREVIEWED`/`ACCEPTED`/`EDITED`/`REJECTED`/
+  `DEFERRED`, what review has happened) are independent.
+- `ReviewEvent`: one row per human action (`review.create_annotation`, `accept`, `edit`,
+  `reject`, `defer`), written in the same transaction as the annotation change, with
+  previous and resulting values and an opaque non-empty `reviewer_id`. Triggers reject
+  UPDATE and DELETE.
+- `ReviewClip` / `ReviewClipParticipant`: review clips with the participants on screen and
+  an optional review-priority score (unbounded, never a confidence or percentage).
+  Clip cutting and scoring belong to a later pipeline.
+- `annotations.import_machine_output` upserts pipeline output by `import_key`. It only
+  updates `AI`/`UNREVIEWED` annotations and clips holding no reviewed annotation, and it
+  never deletes.
+- Rejected annotations are hidden from default queries and exports.
+
+Export current annotations or the review history (CSV or JSON):
+
+```bash
+uv run python scripts/export_annotations.py --format csv --output ../data/annotations.csv
+uv run python scripts/export_annotations.py --format json --history --output ../data/history.json
+```
 
 ## Ingestion behavior
 
@@ -445,6 +575,9 @@ uv run python scripts/replace_identity.py --tables <run>/Database --db ../data/a
   downstream activity/engagement handoffs join on them.
 - Foreign keys, `PRAGMA integrity_check`, and row counts are verified before commit;
   any failure rolls back and leaves the database unchanged (exit code `1`).
+- Refused once the database holds any annotation or review clip: re-clustering would
+  silently reassign the anonymous IDs that reviewed work refers to.
+
 - Replacement is rejected after audit history or finalized clips exist, including
   finalization that produced zero clips. This preserves history and static identity
   membership. Perform identity replacement before user corrections and finalization.

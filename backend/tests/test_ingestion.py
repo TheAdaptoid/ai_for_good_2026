@@ -8,6 +8,7 @@ from analysis_db.contracts import TABLES, DataError, VideoMetadata
 from analysis_db.csv_input import discover_inputs
 from analysis_db.ingestion import ingest_files
 from analysis_db.storage import connect_database, initialize_database, table_counts
+from conftest import pre_review_schema_sql
 
 
 def write_rows(path, rows):
@@ -376,3 +377,20 @@ def test_ingest_files_requires_idle_connection(tmp_path, monkeypatch, make_row):
         con.rollback()
     finally:
         con.close()
+
+
+def test_ingest_on_six_table_database(tmp_path, monkeypatch, make_row):
+    videos = tmp_path / "data" / "videos"
+    videos.mkdir(parents=True)
+    (videos / "clip.mp4").touch()
+    source = tmp_path / "good.csv"
+    write_rows(source, [make_row()])
+    monkeypatch.setattr("analysis_db.ingestion.probe_video",
+                        Mock(return_value=VideoMetadata(duration_seconds=1.0, fps=24.0)))
+    con = connect_database(tmp_path / "six.sqlite")
+    con.executescript(pre_review_schema_sql())
+    try:
+        [result] = ingest_files(con, [source], videos, repository_root=tmp_path)
+    finally:
+        con.close()
+    assert result.committed and result.inserted["FaceDetection"] == 1

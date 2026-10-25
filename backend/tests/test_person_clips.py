@@ -138,10 +138,10 @@ def test_sql_rejects_invalid_boundaries(person_timeline, start, end):
 
 def test_sql_rejects_overlaps_but_allows_adjacent_clips(person_timeline):
     c = person_timeline([], duration=10)
-    c.execute("INSERT INTO Clip VALUES(1,1,0,5,'now')")
+    c.execute("INSERT INTO Clip(clip_id,video_id,start_time_seconds,end_time_seconds,created_at) VALUES(1,1,0,5,'now')")
     with pytest.raises(sqlite3.IntegrityError):
-        c.execute("INSERT INTO Clip VALUES(2,1,4,7,'now')")
-    c.execute("INSERT INTO Clip VALUES(2,1,5,10,'now')")
+        c.execute("INSERT INTO Clip(clip_id,video_id,start_time_seconds,end_time_seconds,created_at) VALUES(2,1,4,7,'now')")
+    c.execute("INSERT INTO Clip(clip_id,video_id,start_time_seconds,end_time_seconds,created_at) VALUES(2,1,5,10,'now')")
 
 
 def test_missing_video_and_active_transaction(person_timeline):
@@ -189,3 +189,35 @@ def test_video_replacement_cannot_delete_finalized_timeline(person_timeline, thr
             c.execute("UPDATE OR REPLACE Video SET video_id=1,filename='timeline.mp4',"
                       "file_path='timeline.mp4',duration_seconds=1 WHERE video_id=2")
     assert {table: c.execute(f"SELECT * FROM {table}").fetchall() for table in tables} == before
+
+
+def test_review_status_is_the_only_mutable_clip_column_and_history_is_append_only(person_timeline):
+    from analysis_db.clips import generate_clips
+    c = person_timeline([{"A"}] * 5, duration=10)
+    generate_clips(c, 1)
+    assert c.execute("SELECT review_status FROM Clip").fetchone() == ("UNREVIEWED",)
+    c.execute("UPDATE Clip SET review_status='DEFERRED'")
+    with pytest.raises(sqlite3.IntegrityError):
+        c.execute("UPDATE Clip SET review_status='REJECTED'")
+    c.execute("INSERT INTO ClipReviewEvent(clip_id,action,previous_status,resulting_status,reviewer_id,created_at)"
+              " SELECT clip_id,'DEFER','UNREVIEWED','DEFERRED','staff','now' FROM Clip")
+    for sql in ("UPDATE ClipReviewEvent SET reviewer_id='x'", "DELETE FROM ClipReviewEvent"):
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute(sql)
+
+
+def test_initialize_adds_review_status_to_an_older_clip_table(tmp_path):
+    from analysis_db.storage import connect_database, initialize_database
+    path = tmp_path / "old.sqlite"
+    initialize_database(path)
+    c = connect_database(path)
+    c.executescript("DROP TRIGGER clip_boundaries_no_update; ALTER TABLE Clip DROP COLUMN review_status;"
+                    " CREATE TRIGGER clip_no_update BEFORE UPDATE ON Clip BEGIN SELECT RAISE(ABORT, 'x'); END;")
+    c.close()
+    initialize_database(path)
+    initialize_database(path)
+    c = connect_database(path)
+    assert "review_status" in {row[1] for row in c.execute("PRAGMA table_info(Clip)")}
+    triggers = {name for (name,) in c.execute("SELECT name FROM sqlite_master WHERE type='trigger'")}
+    assert "clip_no_update" not in triggers and "clip_boundaries_no_update" in triggers
+    c.close()

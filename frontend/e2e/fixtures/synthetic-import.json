@@ -1,0 +1,50 @@
+{
+  "format": "tpa-review-import/1",
+  "pipeline": {
+    "name": "synthetic-fixture",
+    "version": "e2e",
+    "generated_at": "2026-10-25T00:00:00Z",
+    "models": []
+  },
+  "videos": [
+    {
+      "filename": "this is me-songwriting-camp2-reese.mp4",
+      "clips": [
+        {"key": "synthetic:c1", "start_frame": 0, "end_frame": 479, "participants": ["Person_0001"],
+         "priority": {"score": 1.42, "method": "synthetic-fixture@1"}},
+        {"key": "synthetic:c2", "start_frame": 528, "end_frame": 600,
+         "participants": ["Person_0001", "Person_0033", "Person_0074"],
+         "priority": {"score": 2.31, "method": "synthetic-fixture@1"}},
+        {"key": "synthetic:c3", "start_frame": 1200, "end_frame": 1300,
+         "participants": ["Person_0001", "Person_0045"]}
+      ],
+      "annotations": [
+        {"key": "synthetic:a1", "clip_key": "synthetic:c1", "confidence": 0.71,
+         "label": {"name": "Singing", "category": "activity"}},
+        {"key": "synthetic:a2", "clip_key": "synthetic:c1", "person_id": "Person_0001",
+         "start_frame": 0, "end_frame": 479, "confidence": 0.64,
+         "label": {"name": "Visible Positive Affect", "category": "observation"}},
+        {"key": "synthetic:a3", "clip_key": "synthetic:c2", "confidence": 0.55,
+         "label": {"name": "Group Performance", "category": "activity"}},
+        {"key": "synthetic:a4", "clip_key": "synthetic:c2", "person_id": "Person_0033",
+         "start_frame": 528, "end_frame": 600, "confidence": 0.5,
+         "label": {"name": "Visible Neutral Affect", "category": "observation"}},
+        {"key": "synthetic:a5", "clip_key": "synthetic:c3", "person_id": "Person_0045",
+         "start_frame": 1200, "end_frame": 1300, "confidence": 0.41,
+         "label": {"name": "Visible Negative Affect", "category": "observation"}}
+      ]
+    },
+    {
+      "filename": "THIS IS ME 2025-FINAL VIDEO-1080p.mp4",
+      "clips": [
+        {"key": "synthetic:c4", "start_frame": 876, "end_frame": 1000, "participants": ["Person_0001"],
+         "priority": {"score": 0.9, "method": "synthetic-fixture@1"}}
+      ],
+      "annotations": [
+        {"key": "synthetic:a6", "clip_key": "synthetic:c4", "person_id": "Person_0001",
+         "start_frame": 876, "end_frame": 1000, "confidence": 0.8,
+         "label": {"name": "Visible Positive Affect", "category": "observation"}}
+      ]
+    }
+  ]
+}

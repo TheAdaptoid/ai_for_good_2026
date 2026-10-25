@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#111827;--mute:#6B7280;--line:#E5E7EB;--bg:#F9FAFB;--acc:#4F46E5;--amb:#D97706}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,sans-serif;display:grid;grid-template-columns:232px 1fr}
+.side{background:#fff;border-right:1px solid var(--line);padding:18px 14px}
+.side b{display:block;font-size:15px;margin-bottom:22px}.side a{display:block;padding:8px 10px;border-radius:6px;color:var(--mute);font-weight:500}.side a.on{background:#EEF2FF;color:var(--acc)}
+.wrap{display:grid;grid-template-columns:1fr 340px}
+.main{padding:22px 24px}h1{font-size:20px;font-weight:600}.meta{color:var(--mute);font-size:13px}
+.player{margin-top:14px;height:320px;background:#0B0F19;border-radius:10px;display:grid;place-items:center;color:#6B7280}
+.tl{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:10px}
+.row{display:grid;grid-template-columns:160px 1fr;height:34px;border-bottom:1px solid var(--line);align-items:center}
+.row span:first-child{padding-left:12px;color:var(--mute);font-size:13px}.track{position:relative;height:100%}
+.bar{position:absolute;top:9px;height:16px;border-radius:4px}.p{background:#E5E7EB}.a{background:var(--acc)}.s{border:1.5px dashed var(--amb);background:#FFFBEB}
+.insp{background:#fff;border-left:1px solid var(--line);padding:22px}
+.insp h2{font-size:16px;font-weight:600}.pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:#FEF3C7;color:#92400E;margin:8px 0 14px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:8px 12px}dt{color:var(--mute)}dd{text-align:right}
+.btns{display:flex;gap:8px;margin-top:18px}.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font:500 14px Inter}.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+</style></head><body>
+<aside class="side"><b>TPA Video Review</b><a href="#">Dashboard</a><a class="on" href="#">Videos</a><a href="#">Participants</a><a href="#">Exports</a></aside>
+<div class="wrap"><main class="main"><h1>THIS IS ME 2025 — Final Video</h1><p class="meta">15:24 · 43 participants · 119 clips</p>
+<div class="player">video player</div>
+<div class="tl">
+<div class="row"><span>Review clips</span><div class="track"><span class="bar a" style="left:3%;width:7%"></span><span class="bar a" style="left:38%;width:9%"></span></div></div>
+<div class="row"><span>Person_0001</span><div class="track"><span class="bar p" style="left:4%;width:30%"></span><span class="bar s" style="left:38%;width:9%"></span></div></div>
+<div class="row"><span>Person_0008</span><div class="track"><span class="bar p" style="left:1%;width:58%"></span></div></div>
+<div class="row"><span>Person_0033</span><div class="track"><span class="bar p" style="left:12%;width:31%"></span></div></div>
+<div class="row"><span>Person_0045</span><div class="track"><span class="bar p" style="left:20%;width:58%"></span></div></div>
+</div></main>
+<aside class="insp"><h2>Visible Positive Affect</h2><span class="pill">Unreviewed · AI</span>
+<dl><dt>Participant</dt><dd>Person_0001</dd><dt>Time</dt><dd>5:51 – 7:14</dd><dt>Model confidence</dt><dd>0.64</dd></dl>
+<div class="btns"><button class="btn pri">Accept</button><button class="btn">Edit</button><button class="btn">Defer</button><button class="btn">Reject</button></div></aside></div>
+</body></html>
