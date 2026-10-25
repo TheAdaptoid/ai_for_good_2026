@@ -65,7 +65,7 @@ async function capture(page: Page, name: string) {
 }
 
 async function readable(page: Page) {
-  const ratios = await page.locator('.stat__value, .stat__label, .panel h2, .facts dt, .facts dd, .badge, .legend, button.primary').evaluateAll((elements) => {
+  const ratios = await page.locator('.stat__value, .stat__label, table.videos tbody th a, .panel h2, .facts dt, .facts dd, .badge, .legend, button.primary').evaluateAll((elements) => {
     const luminance = (color: string) => {
       const channels = color.match(/[\d.]+/g)!.slice(0, 3).map((part) => {
         const value = Number(part) / 255
@@ -110,6 +110,19 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByRole('main')).toBeFocused()
     await fits(page)
     await capture(page, `${name}-dashboard`)
+    const videoLink = page.getByRole('link', { name: video.title, exact: true })
+    await expect(videoLink).toHaveCSS('background-color', 'rgb(88, 27, 158)')
+    await expect(videoLink).toHaveCSS('color', 'rgb(255, 255, 255)')
+    await expect(videoLink).toHaveCSS('text-decoration-line', 'none')
+    await videoLink.hover()
+    expect(await videoLink.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgb(88, 27, 158)')
+    await readable(page)
+    await videoLink.focus()
+    expect(await videoLink.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid')
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('heading', { name: video.title, exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Back', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Review queue' })).toHaveCount(0)
     await expect(page.getByText('Export', { exact: true })).toHaveCount(0)
     await page.getByRole('link', { name: 'Data view', exact: true }).click()

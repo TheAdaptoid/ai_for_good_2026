@@ -176,3 +176,14 @@ shipping Impeccable scan pass. Responsive browser variants check the gray surfac
 text, updated label, and text contrast. Inspected a synthetic desktop capture. An existing
 unit test exposed a timing race in the separately loaded import status; its assertion now
 waits for that status to appear. No backend suite rerun, database changes, or media artifacts.
+
+## Dashboard feedback: video links as buttons
+
+Video title links in the dashboard table now have purple button styling, white text, a minimum
+40px height, rounded borders, hover feedback, and the existing visible keyboard focus. They
+remain navigation links, preserving native open-in-new-tab and keyboard behavior.
+
+Validation: 32 Vitest tests, typecheck, lint, build, 17 privacy-safe browser tests, and shipping
+Impeccable checks pass. Responsive design variants verify colors, default/hover contrast,
+keyboard focus and Enter navigation, with a synthetic desktop capture inspected. No backend
+tests were rerun and no database, participant media, or Spec 005 files are part of this change.
