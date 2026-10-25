@@ -35,12 +35,19 @@ CREATE TABLE IF NOT EXISTS FaceDetection (
 );
 CREATE TABLE IF NOT EXISTS Activity (
     activity_id INTEGER PRIMARY KEY,
-    detection_id INTEGER NOT NULL UNIQUE REFERENCES FaceDetection(detection_id),
-    start_frame INTEGER NOT NULL,
-    end_frame INTEGER NOT NULL,
-    activity_label TEXT NOT NULL,
-    confidence REAL NOT NULL,
-    CHECK (end_frame = start_frame + 31)
+    frame_id TEXT NOT NULL UNIQUE REFERENCES Frame(frame_id) ON DELETE CASCADE,
+    window_start_seconds REAL NOT NULL,
+    window_end_seconds REAL NOT NULL,
+    sample_count INTEGER NOT NULL CHECK (sample_count = 32),
+    activity_label TEXT NOT NULL CHECK (length(trim(activity_label)) > 0),
+    score REAL NOT NULL CHECK (score BETWEEN 0 AND 1),
+    result_json TEXT NOT NULL CHECK (json_valid(result_json)),
+    sampling_json TEXT NOT NULL CHECK (json_valid(sampling_json)),
+    config_json TEXT NOT NULL CHECK (json_valid(config_json)),
+    config_hash TEXT NOT NULL,
+    input_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (window_end_seconds > window_start_seconds)
 );
 CREATE TABLE IF NOT EXISTS Engagement (
     engagement_id INTEGER PRIMARY KEY,

@@ -6,6 +6,7 @@ from collections import Counter
 import pytest
 
 from analysis_db.annotations import list_annotations, list_clips
+from analysis_db.activity_schema import LEGACY_DDL
 from analysis_db.contracts import DataError
 from analysis_db.pipeline_import import import_file
 from pipeline.builder import build_import_file, stable_key
@@ -15,8 +16,8 @@ from pipeline.signals import load_video_signals
 INFO = PipelineMetadata("synthetic-stages", "0.1", "2026-10-25T00:00:00Z", (("fake", "r1"),))
 
 
-@pytest.fixture
-def signals_db(review_db):
+@pytest.fixture(params=["legacy", "frame-linked"])
+def signals_db(review_db, request):
     """Video 1: Person_0001 at frames 0-48, Person_0002 joins at 24; one activity, one gap."""
     rows = [(1, "Person_0001", 0), (2, "Person_0001", 24), (3, "Person_0002", 24),
             (4, "Person_0001", 48), (5, "Person_0002", 96)]
@@ -30,8 +31,17 @@ def signals_db(review_db):
                           " negative_score) VALUES (?, ?, ?, ?)",
                           [(1, 0.8, 0.1, 0.1), (2, 0.6, 0.3, 0.1), (3, 0.2, 0.7, 0.1),
                            (4, 0.9, 0.05, 0.05)])
-    review_db.execute("INSERT INTO Activity (detection_id, start_frame, end_frame, activity_label,"
-                      " confidence) VALUES (2, 8, 39, 'singing', 0.7)")
+    if request.param == "legacy":
+        review_db.execute("DROP TABLE Activity")
+        review_db.execute(LEGACY_DDL)
+        review_db.execute("INSERT INTO Activity (detection_id, start_frame, end_frame, activity_label,"
+                          " confidence) VALUES (2, 8, 39, 'singing', 0.7)")
+    else:
+        review_db.execute(
+            "INSERT INTO Activity (frame_id, window_start_seconds, window_end_seconds, sample_count,"
+            " activity_label, score, result_json, sampling_json, config_json, config_hash, input_hash)"
+            " VALUES ('F24', ?, ?, 32, 'singing', 0.7, '{}', '{}', '{}', 'c', 'i')",
+            (8 / 23.976, 39 / 23.976))
     return review_db
 
 
@@ -93,10 +103,22 @@ def test_loader_reads_signals_without_writing(signals_db):
         ("Person_0001", 0), ("Person_0001", 24), ("Person_0002", 24), ("Person_0001", 48),
         ("Person_0002", 96)]
     assert video.detections[1].activity.label == "singing"
+    assert (video.detections[1].activity.start_frame, video.detections[1].activity.end_frame) == (8, 39)
+    if "frame_id" in {row[1] for row in signals_db.execute("PRAGMA table_info(Activity)")}:
+        assert video.detections[2].activity == video.detections[1].activity
     assert video.detections[0].activity is None
     assert video.detections[4].expression is None  # missing signal values stay None
     with pytest.raises(LookupError):
         load_video_signals(signals_db, 99)
+
+
+def test_frame_activity_requires_fps(signals_db):
+    signals_db.execute("UPDATE Video SET fps = NULL WHERE video_id = 1")
+    if "frame_id" in {row[1] for row in signals_db.execute("PRAGMA table_info(Activity)")}:
+        with pytest.raises(DataError, match="positive fps"):
+            load_video_signals(signals_db, 1)
+    else:
+        assert load_video_signals(signals_db, 1).detections[1].activity.label == "singing"
 
 
 def test_built_file_imports_as_ai_suggestions(signals_db):

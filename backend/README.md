@@ -5,8 +5,8 @@ THIS IS ME face-detection CSV. Ingestion builds a six-table analysis database
 (schema in `db/schema.sql`). The `video_retrieval` package reads original video
 frames, face crops, 32-frame clips, and variable-rate temporal samples into
 memory. The `activity_classification` package additionally runs zero-shot X-CLIP
-inference locally on those RGB frames; no component writes predictions back to
-the database. Retrieval uses PyAV and NumPy; ingestion uses the standard
+inference locally on those RGB frames. The activity runner saves frame-linked
+predictions after an explicit schema migration. Retrieval uses PyAV and NumPy; ingestion uses the standard
 library; classification uses PyTorch and Transformers. Use `uv` to manage
 dependencies, pytest, and the Jupyter/Matplotlib validation environment.
 
@@ -221,18 +221,103 @@ uv run python scripts/import_pipeline_output.py --input <run>.json   # --db defa
   with `pipeline.signals.load_video_signals` and turn proposals into a file with
   `pipeline.builder.build_import_file`, which derives deterministic keys.
 
+## Frame-linked activity benchmark
+
+Use a local working copy of the database. Create it once with SQLite's backup
+API; this includes existing engagement results and leaves the shared file alone:
+
+```bash
+uv run --locked python -c "from pathlib import Path; import sqlite3; p=Path('../data/analysis.local.sqlite'); assert not p.exists(), 'Reuse the existing local DB'; s=sqlite3.connect('file:../data/analysis.sqlite?mode=ro',uri=True); d=sqlite3.connect(p); s.backup(d); d.close(); s.close()"
+uv run --locked python scripts/migrate_activity.py --db ../data/analysis.local.sqlite
+uv run --locked python scripts/classify_activity.py --db ../data/analysis.local.sqlite --sample-size 100 --seed 42 --dry-run
+uv run --locked python scripts/classify_activity.py --db ../data/analysis.local.sqlite --sample-size 100 --seed 42 --device cuda --precision fp32 --batch-size 2 --prefetch-batches 2 --report results/activity_benchmark_seed42.json
+```
+
+The migration replaces the **empty legacy Activity table**. It preserves all other
+tables, including Engagement. It is idempotent and rejects unknown schemas or a
+nonempty legacy Activity table. Schema initialization does not migrate old tables.
+Both new CLI commands default to `data/analysis.local.sqlite` when `--db` is omitted.
+
+The runner uses all person IDs and selects distinct frames with detections. It
+samples 100 center frames without replacement using seed 42, then orders those
+frames by video/time. Each input has 32 samples over a centered 15-second window.
+The runner builds a timestamp-only index once per selected video, seeks to each
+window, and reports any sequential-decode fallback. This preserves exact source
+indices and padding, without decoding the whole original for each request.
+
+FP32 and batch size 2 are the runner defaults, based on GTX 1650 measurements.
+The older single-clip classifier retains its device-based default when precision
+is omitted; pass `precision="fp32"` to override it. One CPU worker prepares batches
+in a queue of capacity two; only the consumer uses CUDA and writes results. No
+frames or crops are saved. Batch result timings are amortized shares; the report
+contains raw batch durations and whole-pipeline wall time.
+
+Repeat the command to resume **the same selected sample**. It skips matching
+config/input hashes and does not replace completed sample members with new frames.
+Use another report filename to preserve the original timing report. `--all`
+selects the full population; `--limit N` optionally caps pending attempts in either
+mode. Batch size, precision, queue depth, seed, and sample size are configurable.
+The runner stops after its selected work; it does not start a full run automatically.
+An all-cached resume does not load model weights or decode videos. Ctrl-C saves
+completed rows and writes a partial report when `--report` is set.
+
+The JSON report separates model/index/warm-up setup from processing wall time.
+Its remaining-time estimate uses wall time per newly completed frame, including
+retrieval, preparation, GPU work, and writes. Phase totals overlap and must not be
+added. Partial or all-skipped runs are labeled; skipped work is not timed inference.
+Unrepresented videos and future index-build costs limit the estimate.
+
+### Measured benchmark: October 24, 2026
+
+The GTX 1650 run completed 100 seeded center frames in 50 FP32 batches, with zero
+failures and zero seek fallbacks. Setup took 1,801.18 seconds (30.0 minutes).
+Processing took 302.79 seconds (5.05 minutes), or 3.028 seconds per center frame.
+The remaining 34,352 centers were estimated at 28.89 hours, excluding future setup.
+
+Retrieval totaled 256.84 seconds, preparation 41.51 seconds, inference 77.95
+seconds, and writes 28.09 seconds. These phases overlap. Peak allocated GPU memory
+was 1,381.8 MiB. Retrieval is the current bottleneck. The sample covered videos
+1-6; videos 7-12 were not sampled. These figures estimate runtime, not accuracy.
+The repeat run skipped all 100 without model loading or decoding.
+
+Activity stores the top label/score, full ranked results, actual sampling metadata,
+configuration, and resume hashes. A successful changed configuration replaces the
+frame's current result. Scores are candidate-relative, not calibrated probabilities.
+Detections share the activity of their center frame, not every activity window
+that happens to overlap them. Missing Activity means unprocessed, not negative.
+
+```sql
+SELECT d.person_id, d.detection_id, f.video_id, f.source_time_seconds,
+       a.activity_label, a.score,
+       e.positive_score, e.neutral_score, e.negative_score
+FROM FaceDetection d JOIN Frame f ON f.frame_id = d.frame_id
+LEFT JOIN Activity a ON a.frame_id = f.frame_id
+LEFT JOIN Engagement e ON e.detection_id = d.detection_id
+WHERE d.person_id = ?
+ORDER BY f.video_id, f.frame_number, d.detection_id;
+```
+
+Engagement contains single-frame facial-expression scores, not established
+measurements of engagement, mood, or satisfaction.
+
 ## Database
 
-Six ingestion tables: `Video` (one row per probed video file), `Frame`, `Person`,
-`FaceDetection` (bbox and detection score), plus `Activity` and `Engagement`, which
-hold **raw per-detection machine signals** (model output, never reviewed or edited).
+Six tables: `Video` (one row per probed video file), `Frame`, `Person`,
+`FaceDetection` (bbox and detection score), `Activity` (one result per center
+frame), and `Engagement` (facial-expression scores per detection). The supplied
+database has engagement results. The activity runner writes only Activity.
+
 Five review tables sit alongside them (see [Review model](#review-model)).
 
 `scripts/init_db.py` creates the schema idempotently from `db/schema.sql`
-(`CREATE … IF NOT EXISTS`, `INSERT OR IGNORE`). Schema changes are additive, so running
-it on an existing database **is** the migration: it adds missing tables, indexes,
+(`CREATE … IF NOT EXISTS`, `INSERT OR IGNORE`). Review-table initialization adds missing tables, indexes,
 triggers, and the starter labels in one transaction and never alters existing rows.
+Existing Activity layouts require the explicit migration described above before activity inference.
 Foreign keys are enforced on every connection.
+
+The signal loader reads both legacy per-detection and new frame-linked Activity layouts.
+Frame-linked results are shared only by detections at their center frame; their time windows
+are converted to frame positions using the video's FPS. Loading never migrates or writes data.
 
 Files are stored with **repository-relative paths** (e.g.
 `data/videos/<name>.mp4`); videos are matched by **exact original filename**

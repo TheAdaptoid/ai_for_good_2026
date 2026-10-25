@@ -9,6 +9,17 @@ type RGBFrames = NDArray[np.uint8] | Sequence[NDArray[np.uint8]]
 
 
 @dataclass(frozen=True)
+class PreparedBatch:
+    """CPU tensors only; no torch import is required to import this contract."""
+
+    inputs: dict
+    candidates: tuple
+    input_frame_counts: tuple[int, ...]
+    selected_frame_indices: tuple[tuple[int, ...], ...]
+    preprocessing_time_seconds: float
+
+
+@dataclass(frozen=True)
 class ActivityPrediction:
     label: str
     prompt: str

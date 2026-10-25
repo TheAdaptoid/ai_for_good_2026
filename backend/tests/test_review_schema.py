@@ -7,6 +7,7 @@ import pytest
 from conftest import pre_review_schema_sql
 
 from analysis_db import storage
+from analysis_db.activity_schema import LEGACY_DDL
 from analysis_db.contracts import DataError, REVIEW_TABLES, TABLES
 from analysis_db.storage import assert_schema, connect_database, initialize_database
 
@@ -29,6 +30,8 @@ REAL_DB = Path(__file__).resolve().parents[2] / "data" / "analysis.sqlite"
 def six_table_db(path):
     with closing(sqlite3.connect(path)) as connection:
         connection.executescript(pre_review_schema_sql())
+        connection.execute("DROP TABLE Activity")
+        connection.execute(LEGACY_DDL)
         connection.executescript("""
             INSERT INTO Video (video_id, title, filename, file_path, duration_seconds, fps)
                 VALUES (1, 'v', 'v.mp4', 'data/videos/v.mp4', 10.0, 24.0);
