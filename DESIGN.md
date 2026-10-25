@@ -1,17 +1,19 @@
 # Staff application design
 
-The shipping React application is a staff review tool. Preserve its neutral light/dark palette,
+The shipping React application is a staff review tool. Preserve its neutral light palette,
 system typography, top navigation, and player/timeline/panel workflow. The direction-decision
 HTML sketches under `.impeccable/mocks/decision/` are exploratory references, not shipping screens
 or a mandate to replace the application's visual identity during a refinement pass.
 
 Use the shared tokens and controls in `frontend/src/styles.css`. Body text is 16px with 1.5 line
-height; headings establish hierarchy without decorative labels. White or dark neutral surfaces
-use fine borders, no shadows. Blue indicates actions/activity; teal indicates observations;
+height; headings establish hierarchy without decorative labels. White surfaces
+use fine borders, no shadows. Always use light mode, including when the device prefers dark mode;
+native form controls use `color-scheme: light`. Blue indicates actions/activity; teal indicates
+observations;
 purple indicates clips. Source and review status remain separate, explicit text badges. Dashed
 annotation bars indicate unreviewed AI suggestions; solid bars indicate reviewed values.
 
-Ordinary buttons are at least 40px tall. Focus has a visible, theme-specific outline. Keep Reject
+Ordinary buttons are at least 40px tall. Focus has a visible, contrasting outline. Keep Reject
 separate from Accept, Edit, and Defer. Forms share label spacing, paired time fields, and error
 messages. Empty states are normal workflow states. Preserve the subtle full-border/background
 dashboard notice introduced in `6004efa`.

@@ -46,6 +46,8 @@ async function fits(page: Page) {
 }
 
 async function capture(page: Page, name: string) {
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('light')
+  await expect(page.locator('.topbar, .login__card')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `test-results/design/${name}.png`, fullPage: true,
     mask: [page.locator('video')], maskColor: '#000000' })
@@ -75,7 +77,7 @@ async function readable(page: Page) {
 }
 
 for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light'], [1280, 'light'], [1280, 'dark']] as const) {
-  test(`${width}px ${colorScheme}: staff screens reflow and remain keyboard usable`, async ({ page }) => {
+  test(`${width}px ${colorScheme} device preference: staff screens stay light and keyboard usable`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.emulateMedia({ colorScheme })
     await fixture(page)

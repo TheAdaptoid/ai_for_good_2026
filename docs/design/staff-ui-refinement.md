@@ -70,3 +70,11 @@ landing/showcase task can choose code-first or comp-first independently.
 This is a Chromium design/workflow pass, not a full accessibility certification. Safari,
 Firefox, screen-reader testing, and backend/ML test suites are outside this frontend change.
 Spec 005 remains unfinished and was not resumed.
+
+## Follow-up: always light mode
+
+The user requested white/light UI throughout. Removed the automatic dark palette and set
+`color-scheme: light`, including native form controls. The existing dark-device-preference
+browser variant now verifies that every captured screen still uses a light color scheme and
+white navigation/login surfaces. The original validation above describes the initial pass;
+dark mode is no longer a shipping option.
