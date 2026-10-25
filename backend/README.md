@@ -212,6 +212,14 @@ These reads do not generate clips, run models, populate review tables, or alter 
 Raw signals have no staff review status and no computed review priority. Existing staff
 annotation/review APIs retain their behavior and separate ID namespace.
 
+Stored clip responses expose `mean_positive_score` and `impact_score`, calculated on each read.
+The user-approved impact formula is `1.1^N × mean positive score`, with N counting distinct
+ClipPerson members and the mean using available same-video member observations in the clip's
+half-open interval. Missing observations produce null scores; measured zero remains valid.
+The frontend selects the top ten scored clips per video. Summaries use the same formula and
+current corrected scores. No score column or schema migration is introduced. Video summaries
+also expose `human_annotation_count`, based on source HUMAN rather than acceptance status.
+
 Review clips and AI annotations stay empty until the clip and annotation pipeline (a later
 feature) runs. Every list then returns an empty array.
 

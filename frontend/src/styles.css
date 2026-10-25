@@ -169,6 +169,10 @@ table.videos tbody th a:hover { background: color-mix(in srgb, var(--accent) 85%
 .player { width: 100%; max-height: 52vh; background: #000; border-radius: var(--radius); display: block; }
 .player--missing { display: grid; place-items: center; min-height: 200px; color: #fff; padding: 1.5rem; text-align: center; }
 .timeline-tools { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: .75rem 0 .5rem; flex-wrap: wrap; }
+.clip-filter { min-width: 13rem; }
+.impact-list { padding-left: 1.5rem; margin: 1rem 0; }
+.impact-list li { padding: .4rem 0; }
+.impact-list li > span { display: block; color: var(--muted); font-size: .85rem; }
 .legend { display: flex; gap: .9rem; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
 .legend__item { display: inline-flex; align-items: center; gap: .3rem; }
 .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }

@@ -227,3 +227,23 @@ verification, checked the frontend proxy's 1,988 stored clips, actual participan
 599 activity export rows, 50,514 visible-affect rows, and both empty audit exports against SQL.
 No raw analysis records, database schemas, models, generation code, or unfinished Spec 005 work
 were changed. The real database and all media/captures remain outside the code commit.
+
+## High-impact filter and dashboard feedback
+
+Implemented the user-approved top-ten-per-video filter and `1.1^N × mean positive score`
+ranking; exact data/selection semantics are recorded in high-impact-clips.md and D026. The
+video view offers All clips and High impact: top 10, a ranked seekable list, filtered clip
+markers, and formula/score details. Missing observations remain unscored; zero is valid.
+Dashboard Review clips now explains imported staff-review suggestions. Human annotations
+counts only human-sourced records, including no unchanged AI records merely accepted by staff.
+
+Validation: 38 Vitest tests, typecheck, lint, build, 17 privacy-safe Playwright tests, and
+shipping Impeccable detection pass. Backend: 831 passed, 1 skipped, and the same two known
+environment/platform failures. Regression checks include observation weighting, clip members,
+half-open boundaries, corrected scores, missing/zero values, top-ten selection, ties, seeking,
+and human counts. Synthetic mobile/desktop captures were inspected; no participant footage.
+
+The restarted live service's frontend proxy returns 1,988 clips, with 1,986 scored and two
+unscored. Formula checks and ranked detail summaries agree across all 12 videos; the complete
+score/detail verification took about 0.08 seconds locally. No model, pipeline-generation,
+schema, or stored analysis data was changed. SQLite and all media artifacts remain uncommitted.

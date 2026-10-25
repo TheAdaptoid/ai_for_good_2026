@@ -25,6 +25,7 @@ export function Dashboard() {
   const annotationTotal = sum(list, (v) => Object.values(v.annotation_counts).reduce((a, b) => a + b, 0))
   const clipTotal = sum(list, (v) => v.clip_count)
   const storedClipTotal = sum(list, (v) => v.person_clip_count ?? 0)
+  const humanTotal = sum(list, (v) => v.human_annotation_count ?? 0)
 
   return (
     <>
@@ -38,9 +39,10 @@ export function Dashboard() {
         <Stat label="Participants"
           value={participants.data ? String(participants.data.length) : '…'}
           action={<button type="button" onClick={() => void navigate('/participants')}>Browse participants</button>} />
-        <Stat label="Review clips" value={String(clipTotal)} />
+        <Stat label="Review clips" value={String(clipTotal)}
+          description="Imported staff review suggestions, separate from stored clips." />
         <Stat label="Clips" value={String(storedClipTotal)} />
-        <Stat label="Annotations" value={String(annotationTotal)} />
+        <Stat label="Human annotations" value={String(humanTotal)} />
       </section>
 
       <LatestImport />
@@ -93,11 +95,12 @@ export function Dashboard() {
   )
 }
 
-function Stat({ label, value, action }: { label: string; value: string; action?: ReactNode }) {
+function Stat({ label, value, action, description }: { label: string; value: string; action?: ReactNode; description?: string }) {
   return (
     <div className="stat">
       <span className="stat__value">{value}</span>
       <span className="stat__label">{label}</span>
+      {description && <span className="muted small">{description}</span>}
       {action}
     </div>
   )

@@ -691,6 +691,10 @@ export interface components {
             created_at: string;
             /** End Seconds */
             end_seconds: number;
+            /** Impact Score */
+            impact_score?: number | null;
+            /** Mean Positive Score */
+            mean_positive_score?: number | null;
             /** Person Ids */
             person_ids: string[];
             /** Start Seconds */
@@ -809,6 +813,8 @@ export interface components {
             };
             /** Dominant Activity */
             dominant_activity: string | null;
+            /** Impact Score */
+            impact_score?: number | null;
             visible_affect: components["schemas"]["AffectScores"];
         };
         /** ValidationError */
@@ -851,6 +857,11 @@ export interface components {
             fps: number | null;
             /** Frame Count */
             frame_count: number | null;
+            /**
+             * Human Annotation Count
+             * @default 0
+             */
+            human_annotation_count: number;
             /** Participant Count */
             participant_count: number;
             /**

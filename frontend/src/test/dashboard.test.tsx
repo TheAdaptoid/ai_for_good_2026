@@ -16,6 +16,8 @@ describe('dashboard', () => {
     expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['1:40', '2', '1', '0', '1', '0', '0', '0', '0'])
     expect(screen.getByRole('link', { name: 'Songwriting camp' })).toHaveAttribute('href', '/videos/7')
     expect(within(screen.getByRole('region', { name: 'Totals' })).getByText('Participants').previousSibling).toHaveTextContent('1')
+    expect(screen.getByText('Human annotations').previousSibling).toHaveTextContent('0')
+    expect(screen.getByText('Imported staff review suggestions, separate from stored clips.')).toBeInTheDocument()
     expect(screen.queryByText('Export', { exact: true })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Data view' })).toHaveAttribute('href', '/data')
     expect(screen.queryByRole('region', { name: 'Review queue' })).not.toBeInTheDocument()

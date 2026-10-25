@@ -397,3 +397,18 @@ The later generation feature implements the stages:
   protected.
 - Each successful import appends an `ImportRun` audit row. ImportRun is append-only, enforced by
   triggers.
+
+---
+
+## D026 — High-Impact Clip Ranking in the Staff Video View
+
+Decided by the human on 2026-10-25. Existing stored clips are ranked using
+`1.1^N × mean positive score`, with N equal to the distinct clip membership count and the mean
+equal to the visible-affect observation mean already displayed in clip details. Use current
+Engagement values for members within the same video's half-open clip interval. A missing mean
+leaves a clip unscored; a zero mean remains a valid score.
+
+The video filter shows the top ten scored clips per video, with ties ordered by start time
+and ID. Scores suggest staff review attention and are separate from confidence or conclusions
+about internal emotional states. This resolves the UI ranking choice left open in D024;
+generation work remains deferred. See [feature specification](design/high-impact-clips.md).

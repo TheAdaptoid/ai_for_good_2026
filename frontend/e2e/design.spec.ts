@@ -8,7 +8,7 @@ type VideoSummary = components['schemas']['VideoSummary']
 const video: VideoSummary = {
   video_id: 7, title: 'Synthetic songwriting session with a deliberately long program title',
   filename: 'synthetic.mp4', duration_seconds: 100, fps: 24, frame_count: 2400,
-  participant_count: 1, detection_count: 2, clip_count: 1, person_clip_count: 1,
+  participant_count: 1, detection_count: 2, clip_count: 1, person_clip_count: 1, human_annotation_count: 0,
   annotation_counts: { UNREVIEWED: 1, ACCEPTED: 0, EDITED: 0, REJECTED: 0, DEFERRED: 0 },
 }
 const annotation: Annotation = {
@@ -34,9 +34,9 @@ async function fixture(page: Page) {
     '/videos': [video], '/videos/7': video, '/videos/7/participants': people,
     '/participants': [{ person_id: 'Person_0001', video_count: 1, detection_count: 2 }],
     '/participants/Person_0001': { person_id: 'Person_0001', videos: [{ ...video, ...people[0] }] },
-    '/person-clips': [{ clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], created_at: '2026-10-25T00:00:00Z' }],
-    '/person-clips/8': { clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], created_at: '2026-10-25T00:00:00Z' },
-    '/person-clips/8/summary': { dominant_activity: 'Synthetic singing', activity_distribution: { 'Synthetic singing': 1 }, visible_affect: { positive: 0.5, neutral: 0.4, negative: 0.1, observation_count: 2 } },
+    '/person-clips': [{ clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], mean_positive_score: 0.5, impact_score: 0.55, created_at: '2026-10-25T00:00:00Z' }],
+    '/person-clips/8': { clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], mean_positive_score: 0.5, impact_score: 0.55, created_at: '2026-10-25T00:00:00Z' },
+    '/person-clips/8/summary': { impact_score: 0.55, dominant_activity: 'Synthetic singing', activity_distribution: { 'Synthetic singing': 1 }, visible_affect: { positive: 0.5, neutral: 0.4, negative: 0.1, observation_count: 2 } },
     '/clips': [clip], '/clips/3': clip, '/annotations': [annotation], '/annotations/1': annotation,
     '/annotations/1/history': [], '/imports': [],
     '/labels': [{ label_id: 1, name: annotation.label_name, category: 'activity', is_active: true }],
@@ -183,6 +183,13 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByRole('complementary', { name: 'Database clip' })).toContainText('Synthetic singing')
     await expect(page.getByRole('complementary', { name: 'Database clip' })).toContainText('0.500')
     await capture(page, `${name}-database-clip`)
+    await page.getByLabel('Clip filter').selectOption('impact')
+    await expect(page.getByRole('region', { name: 'High-impact clips' })).toContainText('Impact score 0.550')
+    await expect(page.getByRole('region', { name: 'High-impact clips' }).getByRole('listitem')).toHaveCount(1)
+    await fits(page)
+    await readable(page)
+    await capture(page, `${name}-high-impact`)
+    await page.getByLabel('Clip filter').selectOption('all')
     await page.goto('/videos/7?annotation=1&clip=3')
     await presence.focus()
     await page.keyboard.press('Enter')

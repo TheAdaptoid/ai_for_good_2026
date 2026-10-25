@@ -34,7 +34,7 @@ export const ME = { staff_id: 1, username: 'alex', is_active: true, created_at: 
 
 export const VIDEO: VideoSummary = {
   video_id: 7, title: 'Songwriting camp', filename: 'song.mp4', duration_seconds: 100, fps: 24,
-  frame_count: 2400, participant_count: 2, detection_count: 30, clip_count: 1, person_clip_count: 0,
+  frame_count: 2400, participant_count: 2, detection_count: 30, clip_count: 1, person_clip_count: 0, human_annotation_count: 0,
   annotation_counts: { UNREVIEWED: 1, ACCEPTED: 0, EDITED: 0, REJECTED: 0, DEFERRED: 0 },
 }
 

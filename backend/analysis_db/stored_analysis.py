@@ -16,6 +16,8 @@ class PersonClip:
     end_seconds: float
     person_ids: tuple[str, ...]
     created_at: str
+    mean_positive_score: float | None = None
+    impact_score: float | None = None
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,12 @@ class StoredClipSummary:
     dominant_activity: str | None
     activity_distribution: dict[str, float]
     visible_affect: AffectScores
+    impact_score: float | None = None
+
+
+def clip_impact_score(mean_positive: float | None, participant_count: int) -> float | None:
+    """Staff-selected ranking heuristic, not model confidence or a probability."""
+    return None if mean_positive is None else 1.1 ** participant_count * mean_positive
 
 
 def list_person_clips(connection: sqlite3.Connection, *, video_id: int | None = None,
@@ -57,7 +65,16 @@ def list_person_clips(connection: sqlite3.Connection, *, video_id: int | None = 
             "SELECT p.clip_id,p.person_id FROM ClipPerson p WHERE p.clip_id IN ("
             "SELECT c.clip_id FROM Clip c" + page + ") ORDER BY p.person_id", values):
         members.setdefault(identity, []).append(person)
-    return [PersonClip(identity, video, start, end, tuple(members.get(identity, ())), created)
+    means = dict(connection.execute(
+        "SELECT c.clip_id,AVG(e.positive_score) FROM Clip c"
+        " JOIN Frame f ON f.video_id=c.video_id AND f.source_time_seconds>=c.start_time_seconds"
+        " AND f.source_time_seconds<c.end_time_seconds"
+        " JOIN FaceDetection d ON d.frame_id=f.frame_id"
+        " JOIN ClipPerson p ON p.clip_id=c.clip_id AND p.person_id=d.person_id"
+        " JOIN Engagement e ON e.detection_id=d.detection_id"
+        " WHERE c.clip_id IN (SELECT c.clip_id FROM Clip c" + page + ") GROUP BY c.clip_id", values))
+    return [PersonClip(identity, video, start, end, tuple(members.get(identity, ())), created,
+                       means.get(identity), clip_impact_score(means.get(identity), len(members.get(identity, ()))))
             for identity, video, start, end, created in rows]
 
 
@@ -71,7 +88,8 @@ def get_person_clip(connection: sqlite3.Connection, clip_id: int) -> PersonClip:
 def person_clip_summary(connection: sqlite3.Connection, clip_id: int) -> StoredClipSummary:
     result = get_clip_summary(connection, clip_id)
     return StoredClipSummary(result['activity']['dominant_label'],
-                             result['activity']['distribution'], AffectScores(**result['engagement']))
+                             result['activity']['distribution'], AffectScores(**result['engagement']),
+                             clip_impact_score(result['engagement']['positive'], len(result['person_ids'])))
 
 
 DATABASE_EXPORTS = {

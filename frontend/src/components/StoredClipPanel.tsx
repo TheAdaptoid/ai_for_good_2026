@@ -19,6 +19,14 @@ export function StoredClipPanel({ clip, onClose }: { clip: PersonClip; onClose: 
       {summary.error && <ErrorState error={summary.error} onRetry={summary.reload} />}
       {!summary.data && !summary.error && <Loading what="clip analysis" />}
       {summary.data && <>
+        <h3>Impact score</h3>
+        {summary.data.impact_score === null || summary.data.impact_score === undefined
+          ? <p className="muted">Unscored: no visible-affect observations.</p>
+          : <>
+            <p>{summary.data.impact_score.toFixed(3)}</p>
+            <p className="muted small">1.1^{clip.person_ids.length} × {summary.data.visible_affect.positive?.toFixed(6)} mean positive score. A ranking suggestion for review, not model confidence.</p>
+          </>}
+
         <h3>Activity</h3>
         {summary.data.dominant_activity === null ? <Empty>No activity results overlap this clip.</Empty> : <>
           <p>{summary.data.dominant_activity}</p>

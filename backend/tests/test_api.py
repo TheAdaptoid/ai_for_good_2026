@@ -430,3 +430,43 @@ def test_database_exports_read_stored_rows_and_empty_headers(client, stored, dat
     ('/exports/database/clips?format=xml', 422)])
 def test_stored_read_validation(client, stored, path, status):
     assert client.get('/api' + path).status_code == status
+
+
+def test_impact_uses_all_clip_members_and_observation_mean_with_half_open_bounds(client, stored):
+    stored.execute("INSERT INTO ClipPerson VALUES(1,'Person_0002')")
+    assert client.get('/api/person-clips/1').json()['impact_score'] == pytest.approx(1.1 ** 2 * 0.6)
+    rows = [('MID', 1.5, 'Person_0001', 0.3), ('LATE', 2.0, 'Person_0001', 0.9),
+            ('F1', 1.0, 'Person_0002', 0.2), ('START', 0.25, 'Person_0002', 0.0),
+            ('END', 2.75, 'Person_0001', 1.0), ('F1', 1.0, 'Person_0003', 1.0)]
+    for frame, moment, person, positive in rows:
+        stored.execute('INSERT OR IGNORE INTO Frame VALUES (?,1,?,?)', (frame, round(moment * 24), moment))
+        detection = stored.execute('INSERT INTO FaceDetection(person_id,frame_id,x1,y1,x2,y2,det_score)'
+                                   ' VALUES(?,?,0,0,1,1,0.9)', (person, frame)).lastrowid
+        stored.execute('INSERT INTO Engagement(detection_id,positive_score,neutral_score,negative_score)'
+                       ' VALUES(?,?,0,0)', (detection, positive))
+    clip = client.get('/api/person-clips/1').json()
+    assert clip['mean_positive_score'] == pytest.approx(0.4)
+    assert len(clip['person_ids']) == 2  # repeated detections do not increase N
+    assert clip['impact_score'] == pytest.approx(1.1 ** 2 * 0.4)
+    summary = client.get('/api/person-clips/1/summary').json()
+    assert summary['impact_score'] == pytest.approx(clip['impact_score'])
+    assert summary['visible_affect']['positive'] == pytest.approx(clip['mean_positive_score'])
+    from analysis_db.corrections import correct_engagement
+    correct_engagement(stored, 1, 0.1, 0.3, 0.1)
+    assert client.get('/api/person-clips/1').json()['impact_score'] == pytest.approx(1.1 ** 2 * 0.3)
+    assert client.get('/api/person-clips/2').json()['impact_score'] is None
+
+
+def test_missing_scores_are_unscored_and_zero_scores_are_valid(client, stored):
+    stored.execute('UPDATE Engagement SET positive_score=0')
+    assert client.get('/api/person-clips/1').json()['impact_score'] == 0
+    missing = client.get('/api/person-clips/2').json()
+    assert missing['mean_positive_score'] is None and missing['impact_score'] is None
+    assert client.get('/api/person-clips/2/summary').json()['impact_score'] is None
+
+
+def test_human_annotation_total_counts_source_not_acceptance(client, db, insert_ai_annotation):
+    insert_ai_annotation(db, review_status='ACCEPTED')
+    assert client.get('/api/videos/1').json()['human_annotation_count'] == 0
+    insert_ai_annotation(db, source='HUMAN', review_status='ACCEPTED')
+    assert client.get('/api/videos/1').json()['human_annotation_count'] == 1

@@ -34,6 +34,12 @@ and `Engagement` values, so audited corrections appear on the next request. `/ap
 the existing staff review-suggestion API; its IDs and review states are independent. No raw
 analysis records are copied into review tables or assigned invented review statuses/priorities.
 
+On a video, Clip filter → High impact: top 10 shows the highest-scoring stored clips in that
+video, with a ranked seekable list. The read-time formula is `1.1^N × mean positive score`;
+N counts clip participants and the mean uses available positive-score observations. Missing
+observations leave a clip unscored. Details show the formula inputs and score. This ranking
+is a review suggestion rather than model confidence. All clips restores the full timeline.
+
 ## Agentation feedback
 
 The development app includes the Agentation toolbar, connected to the local MCP server at

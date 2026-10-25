@@ -193,3 +193,47 @@ it('opens stored analysis independently of a review clip with the same ID', asyn
   expect(screen.queryByRole('complementary', { name: 'Database clip' })).not.toBeInTheDocument()
   expect(new URL(location.href).searchParams.has('person_clip')).toBe(false)
 })
+
+it('filters a video to its ten highest scored clips and seeks from the ranked list', async () => {
+  const clips = Array.from({ length: 12 }, (_, index) => ({ clip_id: index + 1, video_id: 7,
+    start_seconds: index * 5, end_seconds: index * 5 + 2, person_ids: ['Person_0001'],
+    created_at: 'now', mean_positive_score: (index + 1) / 20, impact_score: 1.1 * (index + 1) / 20 }))
+  clips[10].mean_positive_score = clips[11].mean_positive_score
+  clips[10].impact_score = clips[11].impact_score
+  const unscored = { ...clips[0], clip_id: 99, mean_positive_score: null, impact_score: null }
+  mockApi(videoRoutes({ current: [] }, {
+    'GET /api/person-clips': [...clips, unscored], 'GET /api/person-clips/11': clips[10],
+    'GET /api/person-clips/11/summary': { dominant_activity: null, activity_distribution: {},
+      visible_affect: { positive: 0.6, neutral: 0.3, negative: 0.1, observation_count: 18 }, impact_score: 0.66 },
+  }))
+  const { container } = renderAt('/videos/7')
+  await screen.findByRole('button', { name: 'Clip #12 at 0:55' })
+  await userEvent.selectOptions(screen.getByLabelText('Clip filter'), 'impact')
+  const ranked = screen.getByRole('region', { name: 'High-impact clips' })
+  const links = within(ranked).getAllByRole('button')
+  expect(links).toHaveLength(10)
+  expect(links[0]).toHaveTextContent('Clip #11:') // ties use earliest time
+  expect(links[1]).toHaveTextContent('Clip #12:')
+  expect(links[9]).toHaveTextContent('Clip #3:')
+  const timeline = screen.getByRole('region', { name: 'Scrollable video timeline' })
+  expect(within(timeline).getAllByRole('button', { name: /^Clip #/ })).toHaveLength(10)
+  expect(within(timeline).queryByRole('button', { name: /^Clip #99 / })).not.toBeInTheDocument()
+  await userEvent.click(links[0])
+  expect(container.querySelector('video')!.currentTime).toBe(50)
+  expect(new URL(location.href).searchParams.get('person_clip')).toBe('11')
+  const panel = await screen.findByRole('complementary', { name: 'Database clip' })
+  expect(await within(panel).findByText('0.660')).toBeInTheDocument()
+  await userEvent.selectOptions(screen.getByLabelText('Clip filter'), 'all')
+  expect(within(timeline).getAllByRole('button', { name: /^Clip #/ })).toHaveLength(13)
+})
+
+it.each([null, 0])('handles missing and zero impact scores (%s)', async (impact) => {
+  const clip = { clip_id: 5, video_id: 7, start_seconds: 2, end_seconds: 3,
+    person_ids: ['Person_0001'], created_at: 'now', mean_positive_score: impact, impact_score: impact }
+  mockApi(videoRoutes({ current: [] }, { 'GET /api/person-clips': [clip] }))
+  renderAt('/videos/7')
+  await screen.findByRole('button', { name: 'Clip #5 at 0:02' })
+  await userEvent.selectOptions(screen.getByLabelText('Clip filter'), 'impact')
+  if (impact === null) expect(screen.getByText('No clips have visible-affect observations to score.')).toBeInTheDocument()
+  else expect(screen.getByRole('region', { name: 'High-impact clips' })).toHaveTextContent('Impact score 0.000')
+})

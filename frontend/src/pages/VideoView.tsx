@@ -5,7 +5,7 @@ import { StoredClipPanel } from '../components/StoredClipPanel'
 import { ClipPanel } from '../components/ClipPanel'
 import { CreateForm } from '../components/CreateForm'
 import { ReviewPanel } from '../components/ReviewPanel'
-import { ErrorState, Loading } from '../components/States'
+import { Empty, ErrorState, Loading } from '../components/States'
 import { Timeline } from '../components/Timeline'
 import { formatTime } from '../format'
 import { useResource } from '../hooks'
@@ -19,6 +19,7 @@ export function VideoView() {
   const selectedId = params.get('annotation') ? Number(params.get('annotation')) : null
   const storedClipId = params.get('person_clip') ? Number(params.get('person_clip')) : null
   const clipId = params.get('clip') ? Number(params.get('clip')) : null
+  const [clipFilter, setClipFilter] = useState<'all' | 'impact'>('all')
   const [showRejected, setShowRejected] = useState(false)
   const [creating, setCreating] = useState(false)
   const [currentTime, setCurrentTime] = useState(startAt)
@@ -31,6 +32,12 @@ export function VideoView() {
     [videoId, showRejected])
   const clips = useResource(() => api.clips({ video_id: videoId }), [videoId])
   const storedClips = useResource(() => api.personClips({ video_id: videoId }), [videoId])
+  const videoClips = useMemo(() => storedClips.data?.filter((clip) => clip.video_id === videoId), [storedClips.data, videoId])
+  const highImpactClips = useMemo(() => (videoClips ?? [])
+    .filter((clip) => typeof clip.impact_score === 'number')
+    .sort((a, b) => b.impact_score! - a.impact_score! || a.start_seconds - b.start_seconds || a.clip_id - b.clip_id)
+    .slice(0, 10), [videoClips])
+  const visibleStoredClips = clipFilter === 'impact' ? highImpactClips : videoClips
   const storedClip = useResource(() => storedClipId === null ? Promise.resolve(null) : api.personClip(storedClipId), [storedClipId])
   const labels = useResource(api.labels, [])
   // Loaded on its own so a just-rejected (hidden) annotation stays open in the panel.
@@ -67,6 +74,7 @@ export function VideoView() {
     setParams((current) => {
       const next = new URLSearchParams(current)
       next.set('person_clip', String(clip.clip_id))
+      next.set('t', String(clip.start_seconds))
       next.delete('clip')
       next.delete('annotation')
       return next
@@ -139,6 +147,17 @@ export function VideoView() {
           )}
 
           <div className="timeline-tools">
+            <label className="clip-filter">
+              Clip filter
+              <select value={clipFilter} onChange={(event) => {
+                const next = event.target.value as 'all' | 'impact'
+                setClipFilter(next)
+                if (next === 'impact' && storedClipId !== null && !highImpactClips.some((clip) => clip.clip_id === storedClipId)) closeStoredClip()
+              }}>
+                <option value="all">All clips</option>
+                <option value="impact">High impact: top 10</option>
+              </select>
+            </label>
             <label className="check">
               <input type="checkbox" checked={showRejected} onChange={(e) => setShowRejected(e.target.checked)} />
               Show rejected annotations
@@ -152,13 +171,27 @@ export function VideoView() {
             </span>
           </div>
 
+          {clipFilter === 'impact' && <section aria-label="High-impact clips">
+            <h2 className="section-title">Top 10 high-impact clips</h2>
+            <p className="muted small">Ranked for review by 1.1^N × mean positive score, where N is the number of people in the clip. This is a ranking suggestion, not model confidence. Clips without visible-affect observations are unscored.</p>
+            {storedClips.loading && <Loading what="impact scores" />}
+            {!storedClips.loading && !storedClips.error && highImpactClips.length === 0 && <Empty>No clips have visible-affect observations to score.</Empty>}
+            {!storedClips.loading && highImpactClips.length > 0 && <ol className="impact-list">
+              {highImpactClips.map((clip) => <li key={clip.clip_id}>
+                <button type="button" className="link" onClick={() => { seek(clip.start_seconds); selectStoredClip(clip) }}>
+                  Clip #{clip.clip_id}: {formatTime(clip.start_seconds)}–{formatTime(clip.end_seconds)}
+                </button>
+                <span>Impact score {clip.impact_score!.toFixed(3)} · {clip.person_ids.length} participant{clip.person_ids.length === 1 ? '' : 's'}</span>
+              </li>)}
+            </ol>}
+          </section>}
           {participants.error && <ErrorState error={participants.error} onRetry={participants.reload} />}
           {annotations.error && <ErrorState error={annotations.error} onRetry={annotations.reload} />}
           {storedClips.error && <ErrorState error={storedClips.error} onRetry={storedClips.reload} />}
           {storedClip.error && <ErrorState error={storedClip.error} onRetry={storedClip.reload} />}
           {clips.error && <ErrorState error={clips.error} onRetry={clips.reload} />}
           {participants.data && annotations.data && clips.data && duration > 0 ? (
-            <Timeline duration={duration} storedClips={storedClips.data} selectedStoredClipId={storedClipId} onSelectStoredClip={selectStoredClip} clips={clips.data} annotations={annotations.data}
+            <Timeline duration={duration} storedClips={visibleStoredClips} selectedStoredClipId={storedClipId} onSelectStoredClip={selectStoredClip} clips={clips.data} annotations={annotations.data}
               participants={participants.data} currentTime={currentTime} selectedId={selectedId}
               selectedClipId={clipId} onSeek={seek} onSelect={select} onSelectClip={selectClip} />
           ) : (

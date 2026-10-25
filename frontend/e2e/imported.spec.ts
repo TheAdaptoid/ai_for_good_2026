@@ -24,7 +24,7 @@ const reviewPanel = (page: Page) => page.getByRole('complementary', { name: 'Rev
 test('dashboard shows imported counts, the review queue, and the latest import', async ({ page }) => {
   await signIn(page)
   await expect(page.locator('.stat', { hasText: 'Review clips' })).toContainText('4')
-  await expect(page.locator('.stat', { hasText: /^\d+Annotations/ })).toContainText('6')
+  await expect(page.locator('.stat', { hasText: /^\d+Human annotations/ })).toContainText('0')
   await expect(page.getByText(/No review clips or suggested annotations yet/)).toHaveCount(0)
   await expect(page.getByText(/Latest pipeline import/)).toContainText('synthetic-fixture e2e')
   await page.getByRole('link', { name: 'Review', exact: true }).click()
