@@ -23,7 +23,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not args.db.is_file():
+        parser.error(f"database {args.db} does not exist; omit --db to use {DEFAULT_DB}")
     import uvicorn
 
     from api.app import create_app

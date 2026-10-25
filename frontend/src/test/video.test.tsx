@@ -24,10 +24,53 @@ describe('video view', () => {
   it('shows one row per participant and seeks when presence is clicked', async () => {
     mockApi(videoRoutes({ current: [annotation()] }))
     const { container } = renderAt('/videos/7')
-    expect(await screen.findByRole('link', { name: 'Person_0002' })).toHaveAttribute('href', '/participants/Person_0002')
+    expect(await screen.findByRole('link', { name: 'Person_0002' })).toHaveAttribute('href', '/videos/7?person=Person_0002')
     const presence = screen.getByTitle('Person_0001 on screen 0:30–0:40')
     fireEvent.click(presence)
     expect(container.querySelector('video')!.currentTime).toBe(30)
+  })
+
+  it('focuses on one participant: only their row, clips, and annotations, until Show All Participants, and back', async () => {
+    const theirs = { clip_id: 21, video_id: 7, start_seconds: 10, end_seconds: 20, person_ids: ['Person_0001', 'Person_0002'],
+      created_at: 'now', mean_positive_score: 0.5, impact_score: 0.8 }
+    const others = { ...theirs, clip_id: 22, start_seconds: 50, end_seconds: 60, person_ids: ['Person_0002'] }
+    mockApi(videoRoutes({ current: [annotation(), annotation({ annotation_id: 2, person_id: 'Person_0002' })] },
+      { 'GET /api/person-clips': [theirs, others] }))
+    renderAt('/videos/7')
+    await userEvent.click(await screen.findByRole('link', { name: 'Person_0001' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Showing only Person_0001 in this video')
+    expect(new URL(location.href).searchParams.get('person')).toBe('Person_0001')
+    const timeline = screen.getByRole('region', { name: 'Scrollable video timeline' })
+    expect(within(timeline).queryByRole('link', { name: 'Person_0002' })).not.toBeInTheDocument()
+    expect(within(timeline).getAllByRole('button', { name: /^Clip #/ }).map((b) => b.getAttribute('aria-label'))).toEqual(['Clip #21 at 0:10'])
+    expect(within(timeline).getAllByRole('button', { name: /^Singing/ })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'See top 10 clips' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Show rejected annotations')).not.toBeInTheDocument()
+    expect(screen.queryByText('observation')).not.toBeInTheDocument()
+    expect(screen.queryByText('unreviewed AI suggestion')).not.toBeInTheDocument()
+    expect(screen.queryByText('activity')).not.toBeInTheDocument()
+    expect(document.querySelector('.video-page--person')).not.toBeNull()
+    expect(within(timeline).queryByText('Review clips')).not.toBeInTheDocument()
+    expect(within(timeline).queryByText('Scene')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /All videos for/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show All Participants' }))
+    // Same video, everyone shown, and the bar offers the way back to the original person.
+    expect(location.pathname).toBe('/videos/7')
+    expect(screen.getByRole('status')).toHaveTextContent('Showing all participants in this video.')
+    expect(within(timeline).getByRole('link', { name: 'Person_0002' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'See top 10 clips' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Show rejected annotations')).not.toBeInTheDocument()
+    expect(screen.queryByText('unreviewed AI suggestion')).not.toBeInTheDocument()
+    expect(Array.from(document.querySelectorAll('.legend__item'), (i) => i.textContent?.trim()))
+      .toEqual(['current playback position', 'clip', 'on screen (face detections)'])
+    await userEvent.click(screen.getByRole('button', { name: 'Show Person_0001' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Showing only Person_0001 in this video')
+    expect(within(timeline).queryByRole('link', { name: 'Person_0002' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show All Participants' }))
+    // The clip legend swatch is drawn like the clip bars.
+    const swatch = getComputedStyle(document.querySelector('.swatch--clip')!)
+    const clipBar = getComputedStyle(within(timeline).getAllByRole('button', { name: /^Clip #/ })[0])
+    expect(swatch.borderColor).toBe(clipBar.borderColor)
   })
 
   it('moves the active interval highlight with fractional playback time and clears it outside presence', async () => {
@@ -63,14 +106,13 @@ describe('video view', () => {
     expect(player.currentTime).toBe(42)
   })
 
-  it('hides rejected annotations until asked', async () => {
+  it('keeps rejected annotations out of the video view', async () => {
     const calls = mockApi(videoRoutes({ current: [annotation({ review_status: 'REJECTED' })] }))
     renderAt('/videos/7')
     await screen.findByRole('link', { name: 'Person_0001' })
     expect(screen.queryByRole('button', { name: /^Singing/ })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByLabelText('Show rejected annotations'))
-    expect(await screen.findByRole('button', { name: /^Singing/ })).toBeInTheDocument()
-    expect(calls.some((c) => c.path.includes('include_rejected=true'))).toBe(true)
+    expect(screen.queryByLabelText('Show rejected annotations')).not.toBeInTheDocument()
+    expect(calls.some((c) => c.path.includes('include_rejected=true'))).toBe(false)
   })
 
   it('accepts a suggestion and shows the new current state', async () => {
@@ -197,7 +239,7 @@ it('opens stored analysis independently of a review clip with the same ID', asyn
 it('filters a video to its ten highest scored clips and seeks from the ranked list', async () => {
   const clips = Array.from({ length: 12 }, (_, index) => ({ clip_id: index + 1, video_id: 7,
     start_seconds: index * 5, end_seconds: index * 5 + 2, person_ids: ['Person_0001'],
-    created_at: 'now', mean_positive_score: (index + 1) / 20, impact_score: 1.1 * (index + 1) / 20 }))
+    created_at: 'now', mean_positive_score: (index + 1) / 20, impact_score: 1.3 * (index + 1) / 20 }))
   clips[10].mean_positive_score = clips[11].mean_positive_score
   clips[10].impact_score = clips[11].impact_score
   const unscored = { ...clips[0], clip_id: 99, mean_positive_score: null, impact_score: null }
@@ -208,13 +250,19 @@ it('filters a video to its ten highest scored clips and seeks from the ranked li
   }))
   const { container } = renderAt('/videos/7')
   await screen.findByRole('button', { name: 'Clip #12 at 0:55' })
-  await userEvent.selectOptions(screen.getByLabelText('Clip filter'), 'impact')
+  expect(screen.queryByLabelText('Clip filter')).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'See top 10 clips' }))
+  expect(screen.getByRole('button', { name: 'Show all clips' })).toHaveAttribute('aria-pressed', 'true')
   const ranked = screen.getByRole('region', { name: 'High-impact clips' })
   const links = within(ranked).getAllByRole('button')
   expect(links).toHaveLength(10)
-  expect(links[0]).toHaveTextContent('Clip #11:') // ties use earliest time
-  expect(links[1]).toHaveTextContent('Clip #12:')
-  expect(links[9]).toHaveTextContent('Clip #3:')
+  expect(links[0]).toHaveTextContent('#1 · Clip 11') // ties use earliest time
+  expect(links[0]).toHaveTextContent(`Impact score ${clips[10].impact_score.toFixed(3)}`)
+  expect(links[0]).toHaveTextContent('1 participant')
+  expect(links[0]).not.toHaveTextContent('Person_0001')
+  expect(links[0].querySelector('img')).toHaveAttribute('src', '/api/person-clips/11/thumbnail')
+  expect(links[1]).toHaveTextContent('#2 · Clip 12')
+  expect(links[9]).toHaveTextContent('#10 · Clip 3')
   const timeline = screen.getByRole('region', { name: 'Scrollable video timeline' })
   expect(within(timeline).getAllByRole('button', { name: /^Clip #/ })).toHaveLength(10)
   expect(within(timeline).queryByRole('button', { name: /^Clip #99 / })).not.toBeInTheDocument()
@@ -223,7 +271,7 @@ it('filters a video to its ten highest scored clips and seeks from the ranked li
   expect(new URL(location.href).searchParams.get('person_clip')).toBe('11')
   const panel = await screen.findByRole('complementary', { name: 'Database clip' })
   expect(await within(panel).findByText('0.660')).toBeInTheDocument()
-  await userEvent.selectOptions(screen.getByLabelText('Clip filter'), 'all')
+  await userEvent.click(screen.getByRole('button', { name: 'Show all clips' }))
   expect(within(timeline).getAllByRole('button', { name: /^Clip #/ })).toHaveLength(13)
 })
 
@@ -233,7 +281,7 @@ it.each([null, 0])('handles missing and zero impact scores (%s)', async (impact)
   mockApi(videoRoutes({ current: [] }, { 'GET /api/person-clips': [clip] }))
   renderAt('/videos/7')
   await screen.findByRole('button', { name: 'Clip #5 at 0:02' })
-  await userEvent.selectOptions(screen.getByLabelText('Clip filter'), 'impact')
+  await userEvent.click(screen.getByRole('button', { name: 'See top 10 clips' }))
   if (impact === null) expect(screen.getByText('No clips have visible-affect observations to score.')).toBeInTheDocument()
   else expect(screen.getByRole('region', { name: 'High-impact clips' })).toHaveTextContent('Impact score 0.000')
 })

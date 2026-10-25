@@ -37,6 +37,8 @@ class PipelineInfo(_Model):
     version: Text
     generated_at: datetime | None = None
     models: tuple[ModelEntry, ...] = ()
+    # Run configuration (flat scalars). Kept in the file, which ImportRun.input_sha256 identifies.
+    parameters: dict[str, str | int | float | bool | None] = {}
 
 
 class PriorityEntry(_Model):

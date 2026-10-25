@@ -203,22 +203,32 @@ Stored analysis is also exposed through authenticated, read-only endpoints:
 - `person-clips/{id}/summary` reuses the live current-label and visible-affect aggregation
   described under audited corrections below. It exposes neither filesystem paths nor media.
 - `exports/database/{dataset}?format=csv|json`, where dataset is `clips`, `activity`,
-  `engagement`, `activity-history`, or `engagement-history`, reads the corresponding current
+  `engagement`, `activity-history`, `engagement-history`, or `clip-review-history`, reads the corresponding current
   analysis/audit records. CSV headers are retained for empty datasets; authentication tables
   are never exportable. Video summaries include `person_clip_count` separately from the
   existing review-suggestion `clip_count`.
 
 These reads do not generate clips, run models, populate review tables, or alter analysis records.
+
+Stored clips carry their own `review_status` (`UNREVIEWED`, `ACCEPTED`, `EDITED`, `DEFERRED`).
+`POST person-clips/{id}/accept` and `/defer` change only that status. `POST person-clips/{id}/edit`
+takes an active activity label and/or all three visible-affect scores: it relabels every Activity
+window overlapping the clip and sets each member's Engagement scores inside the clip, through the
+audited corrections, then marks the clip `EDITED`. Windows straddling a clip boundary are shared
+with the neighbouring clip. Every action appends a `ClipReviewEvent` with the signed-in reviewer,
+in the same transaction. `scripts/init_db.py` adds the column to older databases.
 Raw signals have no staff review status and no computed review priority. Existing staff
 annotation/review APIs retain their behavior and separate ID namespace.
 
 Stored clip responses expose `mean_positive_score` and `impact_score`, calculated on each read.
-The user-approved impact formula is `1.1^N × mean positive score`, with N counting distinct
+The user-approved impact formula is `ln(1 + clip seconds / 3) × 1.5^N × mean positive score` (D031), with N counting distinct
 ClipPerson members and the mean using available same-video member observations in the clip's
 half-open interval. Missing observations produce null scores; measured zero remains valid.
 The frontend selects the top ten scored clips per video. Summaries use the same formula and
 current corrected scores. No score column or schema migration is introduced. Video summaries
-also expose `human_annotation_count`, based on source HUMAN rather than acceptance status.
+also expose `human_annotation_count`: human-sourced staff annotations plus distinct Activity
+and Engagement records with correction audits. Repeated edits count each record once;
+acceptance or deferral alone does not count as a human modification.
 
 Review clips and AI annotations stay empty until the clip and annotation pipeline (a later
 feature) runs. Every list then returns an empty array.

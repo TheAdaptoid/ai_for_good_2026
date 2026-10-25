@@ -14,13 +14,18 @@ export type ReviewResult = Schemas['ReviewResult']
 export type ReviewClip = Schemas['ReviewClip']
 export type PersonClip = Schemas['PersonClip']
 export type StoredClipSummary = Schemas['StoredClipSummary']
-export type ImportRun = Schemas['ImportRun']
+export type ActivityCount = Schemas['ActivityCount']
+export type VideoProgress = Schemas['VideoProgress']
 export type Label = Schemas['Label']
 export type ReviewStatus = Schemas['ReviewStatus']
 export type CreateAnnotationRequest = Schemas['CreateAnnotationRequest']
 export type EditRequest = Schemas['EditRequest']
+export type ClipEditRequest = Partial<Schemas['ClipEditRequest']> // the service defaults create_activity_label
 export type ReviewAction = 'accept' | 'reject' | 'defer'
-export type ExportKind = 'annotations' | 'history' | 'clips' | 'activity' | 'engagement' | 'activity-history' | 'engagement-history'
+export type ExportKind = 'annotations' | 'history' | 'clips' | 'activity' | 'engagement' | 'activity-history' | 'engagement-history' | 'clip-review-history'
+
+export type ClipReviewStatus = 'UNREVIEWED' | 'ACCEPTED' | 'EDITED' | 'DEFERRED'
+export const CLIP_REVIEW_STATUSES: ClipReviewStatus[] = ['UNREVIEWED', 'ACCEPTED', 'EDITED', 'DEFERRED']
 
 export const REVIEW_STATUSES: ReviewStatus[] = ['UNREVIEWED', 'ACCEPTED', 'EDITED', 'DEFERRED', 'REJECTED']
 
@@ -100,11 +105,15 @@ export const api = {
   clips: (query: { video_id?: number; person_id?: string; order?: 'time' | 'priority'; limit?: number }) =>
     request<ReviewClip[]>('GET', withQuery('/clips', query)),
   clip: (id: number) => request<ReviewClip>('GET', `/clips/${id}`),
-  personClips: (query: { video_id?: number; person_id?: string; limit?: number; offset?: number }) =>
+  personClips: (query: { video_id?: number; person_id?: string; review_status?: ClipReviewStatus; limit?: number; offset?: number }) =>
     request<PersonClip[]>('GET', withQuery('/person-clips', query)),
+  personClipStatusCounts: () => request<Record<ClipReviewStatus, number>>('GET', '/person-clips/status-counts'),
   personClip: (id: number) => request<PersonClip>('GET', `/person-clips/${id}`),
   personClipSummary: (id: number) => request<StoredClipSummary>('GET', `/person-clips/${id}/summary`),
-  imports: () => request<ImportRun[]>('GET', '/imports'),
+  reviewPersonClip: (id: number, action: 'accept' | 'defer') => request<PersonClip>('POST', `/person-clips/${id}/${action}`),
+  editPersonClip: (id: number, body: ClipEditRequest) => request<PersonClip>('POST', `/person-clips/${id}/edit`, body),
+  activityCounts: () => request<ActivityCount[]>('GET', '/activity-counts'),
+  processing: () => request<VideoProgress[]>('GET', '/processing'),
   labels: () => request<Label[]>('GET', '/labels?include_inactive=true'),
   exportCsv: (kind: ExportKind) => request<string>('GET', exportUrl(kind, 'csv').slice(4), undefined, 'text'),
   create: (body: CreateAnnotationRequest) => request<ReviewResult>('POST', '/annotations', body),

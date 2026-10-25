@@ -5,7 +5,7 @@ existing person-presence clips, not a generation or schema-migration feature.
 
 ## Score and data source
 
-`impact_score = 1.1^N × mean_positive_score`
+`impact_score = ln(1 + duration_seconds / 3) × 1.5^N × mean_positive_score` (D031; earlier 1.1^N, 1.3^N by D028, and duration weighting by D029)
 
 - N counts distinct members in ClipPerson for that clip, including members without scores.
 - The mean uses available Engagement.positive_score observations for clip members, in the
@@ -19,7 +19,7 @@ existing person-presence clips, not a generation or schema-migration feature.
 
 ## Video filter behavior
 
-The default All clips view remains available. High impact: top 10 selects up to ten scored
+The default all-clips view remains available. The "See top 10 clips" button selects up to ten scored
 clips from the current video, ordered by descending full-precision score, then earlier start
 time and clip ID for deterministic ties. Display rounding does not affect selection.
 The filtered timeline shows those clips; presence and staff annotations retain their context.
@@ -29,9 +29,10 @@ Keyboard access and responsive layouts remain supported. No model or pipeline wo
 
 ## Dashboard labels
 
-Review clips are imported staff-review suggestions stored separately from canonical clips;
-the dashboard explains this distinction. Human annotations counts Annotation rows whose source
-is HUMAN. Accepting an unchanged AI suggestion does not increase that total.
+The Review clips summary card has been removed. Human Annotations counts human-sourced
+Annotation rows plus distinct Activity and Engagement records with correction audit entries.
+Repeated corrections count each record once. Accepting or deferring unchanged values does
+not increase that total. Imported review suggestions remain available on the Review page.
 
 ## Acceptance and verification
 

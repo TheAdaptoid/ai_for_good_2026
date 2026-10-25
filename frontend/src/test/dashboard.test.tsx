@@ -7,22 +7,70 @@ const EMPTY = { ...VIDEO, video_id: 8, title: 'Intro', clip_count: 0,
   annotation_counts: { UNREVIEWED: 0, ACCEPTED: 0, EDITED: 0, REJECTED: 0, DEFERRED: 0 } }
 
 describe('dashboard', () => {
+  it('gives every total a short, keyboard-reachable description', async () => {
+    mockApi({ 'GET /api/auth/me': ME, 'GET /api/videos': [VIDEO], 'GET /api/participants': [],
+      'GET /api/clips': [], 'GET /api/imports': [] })
+    renderAt('/')
+    const totals = await screen.findByRole('region', { name: 'Totals' })
+    const icons = within(totals).getAllByLabelText(/^About /)
+    expect(icons.map((i) => i.getAttribute('aria-label'))).toEqual(
+      ['About Videos', 'About Footage', 'About Participants', 'About Clips', 'About Human Annotations'])
+    for (const icon of icons) {
+      expect(icon).toHaveAttribute('tabindex', '0')
+      expect(icon).toHaveAccessibleDescription(/\S/)
+      expect(icon.getAttribute('aria-describedby') && document.getElementById(icon.getAttribute('aria-describedby')!)!.textContent!.length).toBeLessThan(90)
+    }
+    expect(within(totals).getByLabelText('About Footage')).toHaveAccessibleDescription('Total running time of all videos.')
+  })
+
+  it('sorts video columns high to low, then low to high', async () => {
+    const LONG = { ...EMPTY, video_id: 9, title: 'Final show', duration_seconds: 900, participant_count: 40 }
+    mockApi({ 'GET /api/auth/me': ME, 'GET /api/videos': [VIDEO, EMPTY, LONG], 'GET /api/participants': [],
+      'GET /api/clips': [], 'GET /api/imports': [] })
+    renderAt('/')
+    await screen.findByRole('link', { name: 'Final show' })
+    const titles = () => screen.getAllByRole('rowheader').map((h) => h.textContent)
+    expect(titles()).toEqual(['Songwriting camp', 'Intro', 'Final show'])
+    const header = screen.getByRole('columnheader', { name: /Participants/ })
+    expect(header).toHaveAttribute('aria-sort', 'none')
+    await userEvent.click(within(header).getByRole('button'))
+    expect(header).toHaveAttribute('aria-sort', 'descending')
+    expect(titles()).toEqual(['Final show', 'Songwriting camp', 'Intro'])
+    await userEvent.click(within(header).getByRole('button'))
+    expect(header).toHaveAttribute('aria-sort', 'ascending')
+    expect(titles()).toEqual(['Songwriting camp', 'Intro', 'Final show']) // equal counts keep database order
+    await userEvent.click(screen.getByRole('button', { name: /Unreviewed/ }))
+    expect(header).toHaveAttribute('aria-sort', 'none')
+    expect(titles()).toEqual(['Songwriting camp', 'Intro', 'Final show']) // ties keep database order
+  })
+
   it('lists videos with participant and review counts', async () => {
-    mockApi({ 'GET /api/auth/me': ME, 'GET /api/videos': [VIDEO, EMPTY],
+    const reviewed = { ...VIDEO, person_clip_count: 6, clip_status_counts: { UNREVIEWED: 2, ACCEPTED: 2, EDITED: 1, DEFERRED: 1 } }
+    mockApi({ 'GET /api/auth/me': ME, 'GET /api/videos': [reviewed, EMPTY],
       'GET /api/participants': [{ person_id: 'Person_0001', video_count: 1, detection_count: 3 }],
       'GET /api/clips': [], 'GET /api/imports': [] })
     renderAt('/')
     const row = (await screen.findByRole('link', { name: 'Songwriting camp' })).closest('tr')!
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['1:40', '2', '1', '0', '1', '0', '0', '0', '0'])
+    // Status columns count stored clips (VIDEO's one UNREVIEWED annotation is not a clip).
+    // Reviewed Clips = Accepted + Edited; Deferred is not counted as reviewed.
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['1:40', '2', '6', '3', '2', '2', '1', '1'])
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent?.replace(/[↕↓↑]/g, ''))).toEqual(
+      ['Video', 'Length', 'Participants', 'Clips', 'Reviewed Clips', 'Unreviewed', 'Accepted', 'Edited', 'Deferred'])
     expect(screen.getByRole('link', { name: 'Songwriting camp' })).toHaveAttribute('href', '/videos/7')
-    expect(within(screen.getByRole('region', { name: 'Totals' })).getByText('Participants').previousSibling).toHaveTextContent('1')
-    expect(screen.getByText('Human annotations').previousSibling).toHaveTextContent('0')
-    expect(screen.getByText('Imported staff review suggestions, separate from stored clips.')).toBeInTheDocument()
+    expect(screen.getByText('The Performance Academy Video Intelligence')).toBeInTheDocument()
+    expect(screen.getByRole('separator')).toBeInTheDocument()
+    expect(screen.queryByText('TPA Video Review')).not.toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Product of Random Forest LLC · © 2026')
+    expect(screen.getByRole('link', { name: /The Performance Academy, Florida/ })).toHaveAttribute('href', '/')
+    const totals = screen.getByRole('region', { name: 'Totals' })
+    expect(within(totals).getByText('Participants').previousSibling).toHaveTextContent(/^11$/) // animated copy + final value for screen readers
+    expect(totals.querySelectorAll('.stat__value .sr-only')[1]).toHaveTextContent('3:20') // two 100 s videos
+    expect(screen.getByText('Human Annotations').previousSibling).toHaveTextContent('0')
+    expect(within(screen.getByRole('region', { name: 'Totals' })).queryByText('Review clips')).not.toBeInTheDocument()
     expect(screen.queryByText('Export', { exact: true })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Data view' })).toHaveAttribute('href', '/data')
     expect(screen.queryByRole('region', { name: 'Review queue' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Browse participants' }))
-    expect(await screen.findByLabelText('Find an anonymous ID')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Browse participants' })).not.toBeInTheDocument()
   })
 
   it('treats an empty pipeline as normal, not as an error', async () => {
@@ -30,12 +78,13 @@ describe('dashboard', () => {
     renderAt('/')
     expect(await screen.findByText(/No review clips or suggested annotations yet/)).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('No pipeline output has been imported yet.')).toBeInTheDocument()
+    expect(screen.queryByText('No pipeline output has been imported yet.')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('link', { name: 'Review' }))
-    expect(await screen.findByText('No review clips have been imported yet.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Review', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Review queue' })).not.toBeInTheDocument()
   })
 
-  it('lists imported clips by review priority with the latest import', async () => {
+  it('shows no import line on the dashboard and no review queue on the review page', async () => {
     const calls = mockApi({ 'GET /api/auth/me': ME, 'GET /api/videos': [VIDEO], 'GET /api/participants': [],
       'GET /api/clips': [
         { clip_id: 9, video_id: 7, start_frame: 240, end_frame: 480, start_seconds: 10, end_seconds: 20,
@@ -47,17 +96,12 @@ describe('dashboard', () => {
         counts: { inserted: 12, updated: 0, skipped_protected: 1, clips_inserted: 2, clips_updated: 0,
           clips_skipped_protected: 0, unchanged: 0, clips_unchanged: 0 } }] })
     renderAt('/')
-    expect(await screen.findByText(/Latest pipeline import/)).toHaveTextContent('clip-pipeline 1.0')
+    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.queryByText(/Latest pipeline import/)).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('link', { name: 'Review' }))
     expect(await screen.findByRole('heading', { name: 'Review', level: 1 })).toBeInTheDocument()
-    const queue = await screen.findByRole('region', { name: 'Review queue' })
-    const items = await within(queue).findAllByRole('listitem')
-    expect(items[0]).toHaveTextContent('Songwriting camp · 0:10–0:20')
-    expect(items[0]).toHaveTextContent('2 participants · review priority 2.07')
-    expect(items[0].textContent).not.toContain('%')
-    expect(items[1]).toHaveTextContent('review priority not computed')
-    expect(within(items[0]).getByRole('link')).toHaveAttribute('href', '/videos/7?t=10.00&clip=9')
-    expect(calls.some((c) => c.path === '/api/clips?order=priority&limit=10')).toBe(true)
+    expect(screen.queryByRole('region', { name: 'Review queue' })).not.toBeInTheDocument()
+    expect(calls.some((c) => c.path.startsWith('/api/clips?order=priority'))).toBe(false)
   })
 
   it('shows a retryable error when the service fails', async () => {

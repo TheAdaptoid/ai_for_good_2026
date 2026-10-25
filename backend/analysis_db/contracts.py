@@ -240,6 +240,7 @@ class VideoSummary:
     clip_count: int
     person_clip_count: int = 0
     human_annotation_count: int = 0
+    clip_status_counts: dict[str, int] = field(default_factory=dict)  # stored clips by review status
 
 
 @dataclass(frozen=True)

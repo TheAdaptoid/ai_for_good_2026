@@ -25,8 +25,8 @@ include all records. Empty datasets still show their real headers. Back opens Da
 ## Data source
 
 The staff screens fetch `/api` through FastAPI, which queries the SQLite file selected by the
-backend's `--db` option (or `TPA_DB`). The default is `data/analysis.sqlite`; an explicit
-`--db ../data/demo.local.sqlite` uses that database instead. Frontend test fixtures are used
+backend's `--db` option (or `TPA_DB`). Run it on `data/analysis.sqlite`
+(`uv run python scripts/serve.py --db ../data/analysis.sqlite`); do not use demo databases. Frontend test fixtures are used
 only by Vitest/Playwright; they are not loaded as application data or used as API fallbacks.
 
 `/api/person-clips` reads `Clip` and `ClipPerson` directly. Clip summaries read current `Activity`
@@ -34,8 +34,8 @@ and `Engagement` values, so audited corrections appear on the next request. `/ap
 the existing staff review-suggestion API; its IDs and review states are independent. No raw
 analysis records are copied into review tables or assigned invented review statuses/priorities.
 
-On a video, Clip filter → High impact: top 10 shows the highest-scoring stored clips in that
-video, with a ranked seekable list. The read-time formula is `1.1^N × mean positive score`;
+On a video, the "See top 10 clips" button shows the highest-scoring stored clips in that
+video, with a ranked seekable list. The read-time formula is `ln(1 + clip seconds / 3) × 1.5^N × mean positive score`;
 N counts clip participants and the mean uses available positive-score observations. Missing
 observations leave a clip unscored. Details show the formula inputs and score. This ranking
 is a review suggestion rather than model confidence. All clips restores the full timeline.

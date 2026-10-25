@@ -7,15 +7,13 @@ import { Empty, ErrorState, Loading } from './States'
 
 interface Props {
   clip: ReviewClip
-  showRejected: boolean
   version: unknown // changes after any review action so the list re-fetches
   onSelect: (annotation: Annotation) => void
   onClose: () => void
 }
 
-export function ClipPanel({ clip, showRejected, version, onSelect, onClose }: Props) {
-  const annotations = useResource(() => api.annotations({ clip_id: clip.clip_id, include_rejected: showRejected }),
-    [clip.clip_id, showRejected, version])
+export function ClipPanel({ clip, version, onSelect, onClose }: Props) {
+  const annotations = useResource(() => api.annotations({ clip_id: clip.clip_id }), [clip.clip_id, version])
 
   return (
     <aside className="panel" aria-label="Review clip">

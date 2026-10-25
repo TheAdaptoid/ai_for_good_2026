@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/activity-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Activity Counts */
+        get: operations["activity_counts_api_activity_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/annotations": {
         parameters: {
             query?: never;
@@ -365,6 +382,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/person-clips/status-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Person Clip Status Counts */
+        get: operations["person_clip_status_counts_api_person_clips_status_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/person-clips/{clip_id}": {
         parameters: {
             query?: never;
@@ -382,6 +416,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/person-clips/{clip_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Person Clip */
+        post: operations["accept_person_clip_api_person_clips__clip_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/person-clips/{clip_id}/defer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Defer Person Clip */
+        post: operations["defer_person_clip_api_person_clips__clip_id__defer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/person-clips/{clip_id}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Edit Person Clip */
+        post: operations["edit_person_clip_api_person_clips__clip_id__edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/person-clips/{clip_id}/summary": {
         parameters: {
             query?: never;
@@ -391,6 +476,40 @@ export interface paths {
         };
         /** Person Clip Summary */
         get: operations["person_clip_summary_api_person_clips__clip_id__summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/person-clips/{clip_id}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Person Clip Thumbnail */
+        get: operations["person_clip_thumbnail_api_person_clips__clip_id__thumbnail_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/processing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Processing */
+        get: operations["processing_api_processing_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -471,6 +590,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityCount */
+        ActivityCount: {
+            /** Activity Label */
+            activity_label: string;
+            /** Count */
+            count: number;
+            /** Mean Positive Score */
+            mean_positive_score?: number | null;
+            /**
+             * Observation Count
+             * @default 0
+             */
+            observation_count: number;
+        };
         /** AffectScores */
         AffectScores: {
             /** Negative */
@@ -513,6 +646,25 @@ export interface components {
             updated_at: string;
             /** Video Id */
             video_id: number;
+        };
+        /**
+         * ClipEditRequest
+         * @description Omitted values stay unchanged; at least one must be given.
+         */
+        ClipEditRequest: {
+            /** Activity Label */
+            activity_label?: string | null;
+            /**
+             * Create Activity Label
+             * @default false
+             */
+            create_activity_label: boolean;
+            /** Negative Score */
+            negative_score?: number | null;
+            /** Neutral Score */
+            neutral_score?: number | null;
+            /** Positive Score */
+            positive_score?: number | null;
         };
         /** CreateAnnotationRequest */
         CreateAnnotationRequest: {
@@ -697,6 +849,11 @@ export interface components {
             mean_positive_score?: number | null;
             /** Person Ids */
             person_ids: string[];
+            /**
+             * Review Status
+             * @default UNREVIEWED
+             */
+            review_status: string;
             /** Start Seconds */
             start_seconds: number;
             /** Video Id */
@@ -805,6 +962,15 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** StageProgress */
+        StageProgress: {
+            /** Done */
+            done: number;
+            /** Stage */
+            stage: string;
+            /** Total */
+            total: number;
+        };
         /** StoredClipSummary */
         StoredClipSummary: {
             /** Activity Distribution */
@@ -839,6 +1005,15 @@ export interface components {
             /** Person Id */
             person_id: string;
         };
+        /** VideoProgress */
+        VideoProgress: {
+            /** Stages */
+            stages: components["schemas"]["StageProgress"][];
+            /** Title */
+            title: string;
+            /** Video Id */
+            video_id: number;
+        };
         /** VideoSummary */
         VideoSummary: {
             /** Annotation Counts */
@@ -847,6 +1022,10 @@ export interface components {
             };
             /** Clip Count */
             clip_count: number;
+            /** Clip Status Counts */
+            clip_status_counts?: {
+                [key: string]: number;
+            };
             /** Detection Count */
             detection_count: number;
             /** Duration Seconds */
@@ -883,6 +1062,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    activity_counts_api_activity_counts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityCount"][];
+                };
+            };
+        };
+    };
     annotations_api_annotations_get: {
         parameters: {
             query?: {
@@ -1333,7 +1532,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                dataset: "clips" | "activity" | "engagement" | "activity-history" | "engagement-history";
+                dataset: "clips" | "activity" | "engagement" | "activity-history" | "engagement-history" | "clip-review-history";
             };
             cookie?: never;
         };
@@ -1520,6 +1719,7 @@ export interface operations {
             query?: {
                 video_id?: number | null;
                 person_id?: string | null;
+                review_status?: ("UNREVIEWED" | "ACCEPTED" | "EDITED" | "DEFERRED") | null;
                 limit?: number | null;
                 offset?: number;
             };
@@ -1549,6 +1749,28 @@ export interface operations {
             };
         };
     };
+    person_clip_status_counts_api_person_clips_status_counts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
     person_clip_api_person_clips__clip_id__get: {
         parameters: {
             query?: never;
@@ -1559,6 +1781,103 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonClip"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_person_clip_api_person_clips__clip_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonClip"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    defer_person_clip_api_person_clips__clip_id__defer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonClip"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_person_clip_api_person_clips__clip_id__edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClipEditRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1607,6 +1926,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    person_clip_thumbnail_api_person_clips__clip_id__thumbnail_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    processing_api_processing_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoProgress"][];
                 };
             };
         };

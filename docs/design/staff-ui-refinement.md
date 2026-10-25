@@ -247,3 +247,26 @@ The restarted live service's frontend proxy returns 1,988 clips, with 1,986 scor
 unscored. Formula checks and ranked detail summaries agree across all 12 videos; the complete
 score/detail verification took about 0.08 seconds locally. No model, pipeline-generation,
 schema, or stored analysis data was changed. SQLite and all media artifacts remain uncommitted.
+
+## Dashboard corrections and dedicated clip playback
+
+Removed the Review clips summary card and capitalized Human Annotations. Its live total
+includes human-sourced staff annotations plus distinct corrected Activity/Engagement records
+from their audit tables; repeated corrections count once. Accept/Defer alone do not count
+as changed values. No database data or schema changes are needed.
+
+Database clip links now open /review/clips/:clipId. The player uses the authenticated original
+stream with a media time fragment and accessible excerpt-relative play/pause and seek controls.
+Seeking is clamped to the stored bounds and playback pauses at the end. The current activity
+and visible-affect summary follows the player; full-video timelines are absent.
+
+Review writes are pending a product decision: do actions apply to individual underlying records
+or to the aggregate clip summary? Raw records currently have correction audits but no persisted
+Accept/Defer state. Do not silently overwrite every observation to edit a displayed average.
+This feedback pass is not complete or committed until that decision and the review actions land.
+
+Validation: 40 Vitest tests, typecheck, lint, build, 50 API tests, 18 privacy-safe browser tests,
+and shipping Impeccable detection pass. A focused excerpt playback browser test also passes
+after the component identity fix. Full backend: 832 passed, 1 skipped; the same two known
+environment failures remain (missing /tmp/opencode and case-insensitive filenames). Only the
+synthetic masked mobile capture was inspected. Participant media and SQLite remain unstaged.

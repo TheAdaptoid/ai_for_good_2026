@@ -42,6 +42,11 @@ def initialize_database(path: Path) -> dict[str, int]:
             connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
             connection.executescript(
                 SCHEMA_PATH.with_name("audit_clips.sql").read_text(encoding="utf-8"))
+            # Clip tables created before clip review lack this column; SQLite has no ADD COLUMN IF NOT EXISTS.
+            if "review_status" not in {row[1] for row in connection.execute("PRAGMA table_info(Clip)")}:
+                connection.execute(
+                    "ALTER TABLE Clip ADD COLUMN review_status TEXT NOT NULL DEFAULT 'UNREVIEWED'"
+                    " CHECK (review_status IN ('UNREVIEWED', 'ACCEPTED', 'EDITED', 'DEFERRED'))")
         except sqlite3.Error:
             connection.rollback()
             raise

@@ -1,4 +1,5 @@
 import csv
+import math
 import io
 import json
 import shutil
@@ -130,6 +131,14 @@ def test_startup_refuses_database_without_staff_tables(tmp_path, videos_dir):
         connection.execute("DROP TABLE StaffSession")
     with pytest.raises(ValueError, match="StaffSession"):
         create_app(db_path, videos_dir)
+
+
+def test_serve_refuses_a_missing_database_with_a_clear_message(tmp_path, capsys):
+    from scripts.serve import main as serve_main
+    with pytest.raises(SystemExit) as exited:
+        serve_main(["--db", str(tmp_path / "missing.sqlite")])
+    assert exited.value.code == 2
+    assert "does not exist; omit --db to use" in capsys.readouterr().err
 
 
 def test_serve_binds_localhost_by_default():
@@ -368,8 +377,8 @@ def test_openapi_script_prints_schema():
 
 @pytest.fixture
 def stored(db):
-    db.execute("INSERT INTO Clip VALUES (1,1,0.25,2.75,'now')")
-    db.execute("INSERT INTO Clip VALUES (2,1,3.0,5.0,'now')")
+    db.execute("INSERT INTO Clip(clip_id,video_id,start_time_seconds,end_time_seconds,created_at) VALUES (1,1,0.25,2.75,'now')")
+    db.execute("INSERT INTO Clip(clip_id,video_id,start_time_seconds,end_time_seconds,created_at) VALUES (2,1,3.0,5.0,'now')")
     db.execute("INSERT INTO ClipPerson VALUES (1,'Person_0001')")
     db.execute("INSERT INTO ClipPerson VALUES (2,'Person_0002')")
     db.execute("INSERT INTO Activity(activity_id,frame_id,window_start_seconds,window_end_seconds,"
@@ -412,8 +421,148 @@ def test_stored_clip_summary_uses_current_corrected_values(client, stored):
     assert client.get('/api/person-clips/2/summary').json()['visible_affect']['observation_count'] == 0
 
 
+def _synthetic_video(path, seconds=4, fps=10):
+    import av
+    import numpy as np
+    with av.open(str(path), "w") as container:
+        stream = container.add_stream("mpeg4", rate=fps)
+        stream.width, stream.height, stream.pix_fmt = 64, 48, "yuv420p"
+        for index in range(seconds * fps):
+            shade = np.full((48, 64, 3), index * 6 % 256, dtype=np.uint8)  # plain synthetic colour
+            for packet in stream.encode(av.VideoFrame.from_ndarray(shade, format="rgb24")):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
+
+
+def test_clip_thumbnail_is_a_small_uncached_jpeg_of_the_clip_start(client, stored, videos_dir):
+    _synthetic_video(videos_dir / "one.mp4")
+    response = client.get('/api/person-clips/1/thumbnail')
+    assert response.status_code == 200, response.text
+    assert response.headers['content-type'] == 'image/jpeg'
+    assert response.headers['cache-control'] == 'no-store'
+    assert response.content[:2] == b'\xff\xd8'
+    from PIL import Image
+    assert Image.open(io.BytesIO(response.content)).size == (64, 48)  # never enlarged
+    assert client.get('/api/person-clips/999/thumbnail').status_code == 404
+    (videos_dir / "one.mp4").unlink()
+    assert client.get('/api/person-clips/1/thumbnail').status_code == 404
+    client.post('/api/auth/logout')
+    assert client.get('/api/person-clips/1/thumbnail').status_code == 401
+
+
+def test_processing_progress_counts_what_each_stage_has_stored(client, stored):
+    # Fixture: video 1 has one frame with a face (F1); it has an Activity result and an Engagement score.
+    stored.execute("INSERT INTO Frame VALUES ('F2', 1, 48, 2.0)")
+    stored.execute("INSERT INTO FaceDetection(person_id,frame_id,x1,y1,x2,y2,det_score) VALUES('Person_0001','F2',0,0,1,1,0.9)")
+    stored.execute("INSERT INTO Frame VALUES ('EMPTY', 1, 72, 3.0)")  # no face: not on the activity work list
+    progress = {v['video_id']: {s['stage']: (s['done'], s['total']) for s in v['stages']}
+                for v in client.get('/api/processing').json()}
+    assert progress[1] == {'activity': (1, 2), 'engagement': (1, 2), 'clips': (0, 1)}
+    assert progress[2] == {'activity': (0, 0), 'engagement': (0, 0), 'clips': (0, 1)}
+    stored.execute("INSERT INTO ClipGeneration VALUES (1, 5, 'now')")
+    assert client.get('/api/processing').json()[0]['stages'][2] == {'stage': 'clips', 'done': 1, 'total': 1}
+    client.post('/api/auth/logout')
+    assert client.get('/api/processing').status_code == 401
+
+
+def test_activity_counts_use_current_labels_most_frequent_first(client, stored):
+    for index, label in enumerate(['Acting', 'Acting', 'Dancing'], start=2):
+        stored.execute("INSERT INTO Frame VALUES (?,1,?,?)", (f'A{index}', index * 24, float(index)))
+        stored.execute("INSERT INTO Activity(frame_id,window_start_seconds,window_end_seconds,sample_count,"
+                       "activity_label,score,result_json,sampling_json,config_json,config_hash,input_hash)"
+                       " VALUES(?,?,?,32,?,0.5,'{}','{}','{}','c','i')", (f'A{index}', index, index + 1, label))
+    # Windows: Stored singing 0–10 s (covers F1 at 1.0 s, positive 0.6); Acting 2–3 s and 3–4 s; Dancing 4–5 s.
+    assert [(c['activity_label'], c['count']) for c in client.get('/api/activity-counts').json()] == [
+        ('Acting', 2), ('Dancing', 1), ('Stored singing', 1)]
+    by_label = {c['activity_label']: c for c in client.get('/api/activity-counts').json()}
+    assert by_label['Stored singing']['mean_positive_score'] == pytest.approx(0.6)
+    assert by_label['Stored singing']['observation_count'] == 1
+    assert by_label['Acting']['mean_positive_score'] is None and by_label['Acting']['observation_count'] == 0
+    stored.execute("INSERT INTO FaceDetection(person_id,frame_id,x1,y1,x2,y2,det_score) VALUES('Person_0002','A2',0,0,1,1,0.9)")
+    stored.execute("INSERT INTO Engagement(detection_id,positive_score,neutral_score,negative_score)"
+                   " VALUES((SELECT MAX(detection_id) FROM FaceDetection),0.2,0.7,0.1)")
+    by_label = {c['activity_label']: c for c in client.get('/api/activity-counts').json()}
+    assert by_label['Acting']['mean_positive_score'] == pytest.approx(0.2)  # A2 at 2.0 s is in the 2–3 s window only
+    assert by_label['Stored singing']['mean_positive_score'] == pytest.approx(0.4)  # 0–10 s now holds 0.6 and 0.2
+    from analysis_db.corrections import correct_activity
+    correct_activity(stored, 1, 'Dancing', changed_by='staff')
+    counts = {c['activity_label']: c['count'] for c in client.get('/api/activity-counts').json()}
+    assert counts == {'Acting': 2, 'Dancing': 2}
+
+
+def test_clip_accept_and_defer_change_only_status_and_append_history(client, stored):
+    assert client.get('/api/person-clips/1').json()['review_status'] == 'UNREVIEWED'
+    assert client.post('/api/person-clips/1/accept').json()['review_status'] == 'ACCEPTED'
+    assert client.post('/api/person-clips/1/defer').json()['review_status'] == 'DEFERRED'
+    assert client.get('/api/person-clips/2').json()['review_status'] == 'UNREVIEWED'
+    assert client.get('/api/videos/1').json()['clip_status_counts'] == {
+        'UNREVIEWED': 1, 'ACCEPTED': 0, 'EDITED': 0, 'DEFERRED': 1}
+    assert [c['clip_id'] for c in client.get('/api/person-clips?review_status=DEFERRED').json()] == [1]
+    assert [c['clip_id'] for c in client.get('/api/person-clips?review_status=UNREVIEWED').json()] == [2]
+    assert client.get('/api/person-clips?review_status=ACCEPTED').json() == []
+    assert client.get('/api/person-clips/status-counts').json() == {
+        'UNREVIEWED': 1, 'ACCEPTED': 0, 'EDITED': 0, 'DEFERRED': 1}
+    events = stored.execute("SELECT action,previous_status,resulting_status,reviewer_id FROM ClipReviewEvent"
+                            " ORDER BY event_id").fetchall()
+    assert events == [('ACCEPT', 'UNREVIEWED', 'ACCEPTED', 'alex'), ('DEFER', 'ACCEPTED', 'DEFERRED', 'alex')]
+    assert stored.execute('SELECT COUNT(*) FROM ActivityAudit').fetchone() == (0,)
+    summary = client.get('/api/person-clips/1/summary').json()
+    assert summary['dominant_activity'] == 'Stored singing'
+
+
+def test_clip_edit_corrects_signals_with_audit_and_sets_edited(client, stored):
+    response = client.post('/api/person-clips/1/edit', json={
+        'activity_label': 'Dancing', 'positive_score': 0.9, 'neutral_score': 0.1, 'negative_score': 0.0})
+    assert response.status_code == 200, response.text
+    assert response.json()['review_status'] == 'EDITED'
+    summary = client.get('/api/person-clips/1/summary').json()
+    assert summary['dominant_activity'] == 'Dancing'
+    assert summary['visible_affect']['positive'] == 0.9
+    assert stored.execute('SELECT old_label,new_label,changed_by FROM ActivityAudit').fetchall() == [
+        ('Stored singing', 'Dancing', 'alex')]
+    assert stored.execute('SELECT old_positive_score,new_positive_score,changed_by FROM EngagementAudit').fetchall() == [
+        (0.6, 0.9, 'alex')]
+    assert stored.execute('SELECT action,resulting_status FROM ClipReviewEvent').fetchall() == [('EDIT', 'EDITED')]
+
+
+def test_clip_edit_can_add_a_new_activity_label_atomically(client, stored):
+    body = {'activity_label': '  Beatboxing ', 'create_activity_label': True}
+    response = client.post('/api/person-clips/1/edit', json=body)
+    assert response.status_code == 200, response.text
+    assert client.get('/api/person-clips/1/summary').json()['dominant_activity'] == 'Beatboxing'
+    names = [l['name'] for l in client.get('/api/labels?category=activity').json()]
+    assert names.count('Beatboxing') == 1
+    assert client.post('/api/person-clips/2/edit', json={**body, 'activity_label': 'beatboxing'}).status_code == 400
+    # A failed edit leaves no new label behind.
+    assert client.post('/api/person-clips/2/edit', json={'activity_label': ' ', 'create_activity_label': True}).status_code == 400
+    # No activity window overlaps clip 3, so the edit changes nothing and the new label rolls back.
+    stored.execute("INSERT INTO Clip(clip_id,video_id,start_time_seconds,end_time_seconds,created_at)"
+                   " VALUES (3,1,10.0,12.0,'now')")
+    assert client.post('/api/person-clips/3/edit', json={'activity_label': 'Juggling',
+                                                          'create_activity_label': True}).status_code == 400
+    assert 'Juggling' not in [l['name'] for l in client.get('/api/labels').json()]
+
+
+@pytest.mark.parametrize('body', [{}, {'activity_label': 'Not a label'}, {'positive_score': 0.5},
+                                  {'activity_label': 'Stored singing'}, {'reviewer_id': 'mallory'},
+                                  {'positive_score': 2, 'neutral_score': 0, 'negative_score': 0}])
+def test_clip_edit_rejects_invalid_or_no_op_edits_without_writing(client, stored, body):
+    assert client.post('/api/person-clips/1/edit', json=body).status_code in (400, 422)
+    assert client.get('/api/person-clips/1').json()['review_status'] == 'UNREVIEWED'
+    for table in ('ClipReviewEvent', 'ActivityAudit', 'EngagementAudit'):
+        assert stored.execute(f'SELECT COUNT(*) FROM {table}').fetchone() == (0,)
+
+
+def test_clip_review_requires_sign_in_and_existing_clip(anon, client, stored):
+    assert client.post('/api/person-clips/999/accept').status_code == 404
+    client.post('/api/auth/logout')
+    assert client.post('/api/person-clips/1/accept').status_code == 401
+
+
 @pytest.mark.parametrize('dataset,count', [('clips', 2), ('activity', 1), ('engagement', 1),
-                                          ('activity-history', 0), ('engagement-history', 0)])
+                                          ('activity-history', 0), ('engagement-history', 0),
+                                          ('clip-review-history', 0)])
 def test_database_exports_read_stored_rows_and_empty_headers(client, stored, dataset, count):
     base = f'/api/exports/database/{dataset}'
     response = client.get(base + '?format=csv')
@@ -426,7 +575,7 @@ def test_database_exports_read_stored_rows_and_empty_headers(client, stored, dat
 
 @pytest.mark.parametrize('path,status', [('/person-clips/999', 404),
     ('/person-clips/999/summary', 404), ('/person-clips?limit=0', 422),
-    ('/person-clips?offset=-1', 422), ('/exports/database/StaffAccount?format=csv', 422),
+    ('/person-clips?offset=-1', 422), ('/person-clips?review_status=REJECTED', 422), ('/exports/database/StaffAccount?format=csv', 422),
     ('/exports/database/clips?format=xml', 422)])
 def test_stored_read_validation(client, stored, path, status):
     assert client.get('/api' + path).status_code == status
@@ -434,7 +583,7 @@ def test_stored_read_validation(client, stored, path, status):
 
 def test_impact_uses_all_clip_members_and_observation_mean_with_half_open_bounds(client, stored):
     stored.execute("INSERT INTO ClipPerson VALUES(1,'Person_0002')")
-    assert client.get('/api/person-clips/1').json()['impact_score'] == pytest.approx(1.1 ** 2 * 0.6)
+    assert client.get('/api/person-clips/1').json()['impact_score'] == pytest.approx(math.log1p(2.5 / 3) * 1.5 ** 2 * 0.6)  # clip 1 lasts 2.5 s
     rows = [('MID', 1.5, 'Person_0001', 0.3), ('LATE', 2.0, 'Person_0001', 0.9),
             ('F1', 1.0, 'Person_0002', 0.2), ('START', 0.25, 'Person_0002', 0.0),
             ('END', 2.75, 'Person_0001', 1.0), ('F1', 1.0, 'Person_0003', 1.0)]
@@ -447,13 +596,13 @@ def test_impact_uses_all_clip_members_and_observation_mean_with_half_open_bounds
     clip = client.get('/api/person-clips/1').json()
     assert clip['mean_positive_score'] == pytest.approx(0.4)
     assert len(clip['person_ids']) == 2  # repeated detections do not increase N
-    assert clip['impact_score'] == pytest.approx(1.1 ** 2 * 0.4)
+    assert clip['impact_score'] == pytest.approx(math.log1p(2.5 / 3) * 1.5 ** 2 * 0.4)
     summary = client.get('/api/person-clips/1/summary').json()
     assert summary['impact_score'] == pytest.approx(clip['impact_score'])
     assert summary['visible_affect']['positive'] == pytest.approx(clip['mean_positive_score'])
     from analysis_db.corrections import correct_engagement
     correct_engagement(stored, 1, 0.1, 0.3, 0.1)
-    assert client.get('/api/person-clips/1').json()['impact_score'] == pytest.approx(1.1 ** 2 * 0.3)
+    assert client.get('/api/person-clips/1').json()['impact_score'] == pytest.approx(math.log1p(2.5 / 3) * 1.5 ** 2 * 0.3)
     assert client.get('/api/person-clips/2').json()['impact_score'] is None
 
 
@@ -470,3 +619,16 @@ def test_human_annotation_total_counts_source_not_acceptance(client, db, insert_
     assert client.get('/api/videos/1').json()['human_annotation_count'] == 0
     insert_ai_annotation(db, source='HUMAN', review_status='ACCEPTED')
     assert client.get('/api/videos/1').json()['human_annotation_count'] == 1
+
+
+def test_human_annotation_total_counts_each_corrected_record_once(client, stored, insert_ai_annotation):
+    from analysis_db.corrections import correct_activity, correct_engagement
+    assert client.get('/api/videos/1').json()['human_annotation_count'] == 0
+    correct_activity(stored, 1, 'Updated singing', changed_by='staff')
+    correct_activity(stored, 1, 'Updated again', changed_by='staff')
+    correct_engagement(stored, 1, 0.2, 0.7, 0.1, changed_by='staff')
+    correct_engagement(stored, 1, 0.3, 0.6, 0.1, changed_by='staff')
+    assert client.get('/api/videos/1').json()['human_annotation_count'] == 2
+    assert client.get('/api/videos/2').json()['human_annotation_count'] == 0
+    insert_ai_annotation(stored, source='HUMAN')
+    assert client.get('/api/videos/1').json()['human_annotation_count'] == 3

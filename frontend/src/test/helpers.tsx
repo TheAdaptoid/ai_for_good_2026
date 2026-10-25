@@ -17,7 +17,8 @@ export function mockApi(routes: Record<string, Route>): Call[] {
     const method = init.method ?? 'GET'
     const body = init.body ? JSON.parse(init.body as string) : undefined
     calls.push({ method, path: url.pathname + url.search, body })
-    const route = routes[`${method} ${url.pathname}`] ?? (method === 'GET' && url.pathname === '/api/person-clips' ? [] : undefined)
+    const route = routes[`${method} ${url.pathname}`]
+      ?? (method === 'GET' && ['/api/person-clips', '/api/activity-counts'].includes(url.pathname) ? [] : undefined)
     if (route === undefined) return json({ detail: 'not found' }, 404)
     const result = typeof route === 'function' ? route({ url, body }) : route
     return result instanceof Response ? result : json(result)

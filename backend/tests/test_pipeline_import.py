@@ -242,6 +242,7 @@ INVALID = {
     "blank key": (mutate("videos.1.clips.0.key", "  "), "key"),
     "bad format": (mutate("format", "tpa-review-import/2"), "format"),
     "unknown field": (mutate("videos.1.clips.0.colour", "red"), "Extra inputs"),
+    "nested parameter": (mutate("pipeline.parameters", {"thresholds": {"a": 1}}), "parameters"),
     "repeated participant": (mutate("videos.1.clips.0.participants", ["Person_0001", "Person_0001"]), "repeat"),
     "missing span for person": (mutate("videos.1.annotations.1.start_frame", DELETE), "both start_frame"),
     "clip-level span mismatch": (mutate("videos.1.annotations.0.start_frame", 1), "both start_frame"),
@@ -258,6 +259,14 @@ def test_invalid_file_stores_nothing(review_db, name):
     with pytest.raises(DataError, match=message):
         run(review_db, data)
     assert snapshot(review_db) == before and list_import_runs(review_db) == []
+
+
+def test_flat_parameters_are_accepted_and_optional(review_db):
+    data = synthetic()
+    data["pipeline"]["parameters"] = {"gap_seconds": 2.0, "device": "cpu", "activity": True,
+                                      "note": None}
+    assert run(review_db, data).counts.inserted == 7
+    assert "parameters" not in synthetic()["pipeline"]  # older files stay valid
 
 
 def test_clip_level_span_must_match_clip(review_db):

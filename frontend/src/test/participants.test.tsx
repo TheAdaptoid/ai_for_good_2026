@@ -34,13 +34,13 @@ describe('participant view', () => {
     })
     renderAt('/participants/Person_0001')
     expect(await screen.findByRole('heading', { name: 'Person_0001' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Songwriting camp' })).toHaveAttribute('href', '/videos/7?t=10.00')
-    expect(screen.getByRole('link', { name: 'Final show' })).toHaveAttribute('href', '/videos/8?t=5.00')
+    expect(screen.getByRole('link', { name: 'Songwriting camp' })).toHaveAttribute('href', '/videos/7?person=Person_0001&t=10.00')
+    expect(screen.getByRole('link', { name: 'Final show' })).toHaveAttribute('href', '/videos/8?person=Person_0001&t=5.00')
     const presence = screen.getByLabelText('Person_0001 presence in Songwriting camp')
-    expect(within(presence).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/videos/7?t=10.00', '/videos/7?t=30.00'])
-    expect(screen.getByRole('link', { name: /Singing/ })).toHaveAttribute('href', '/videos/7?t=10.00&annotation=1')
+    expect(within(presence).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/videos/7?person=Person_0001&t=10.00', '/videos/7?person=Person_0001&t=30.00'])
+    expect(screen.getByRole('link', { name: /Singing/ })).toHaveAttribute('href', '/videos/7?person=Person_0001&t=10.00&annotation=1')
     expect(screen.getByText('UNREVIEWED')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '0:10–0:20' })).toHaveAttribute('href', '/videos/7?t=10.00&clip=3')
+    expect(screen.getByRole('link', { name: '0:10–0:20' })).toHaveAttribute('href', '/videos/7?person=Person_0001&t=10.00&clip=3')
   })
 
   it('reports an unknown participant', async () => {

@@ -36,6 +36,7 @@ JSON, UTF-8. Validated in full before anything is stored. One file is one all-or
 | `format` | exactly `tpa-review-import/1` |
 | `pipeline.name`, `version` | non-empty |
 | `pipeline.models` | list, may be empty. Each entry has a non-empty `name`; `revision` is optional |
+| `pipeline.parameters` | optional object of flat scalar values (string, number, boolean, null) recording the run configuration. Added by Spec 005; older files stay valid. It is not stored in the database, but `ImportRun.input_sha256` identifies the file that carries it |
 | `videos[].filename` | must match an existing `Video.filename`, and each filename may appear only once |
 | `clips[].key` | non-empty, unique within the file |
 | `clips[].start_frame/end_frame` | integers, `0 ≤ start ≤ end < frame count` |

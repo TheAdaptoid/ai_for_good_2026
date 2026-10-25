@@ -4,7 +4,9 @@ import { formatTime } from '../format'
 import { useResource } from '../hooks'
 import { Empty, ErrorState, Loading } from './States'
 
-export function StoredClipPanel({ clip, onClose }: { clip: PersonClip; onClose: () => void }) {
+export function StoredClipPanel({ clip, onClose, personHref = (id) => `/participants/${encodeURIComponent(id)}` }: {
+  clip: PersonClip; onClose: () => void; personHref?: (personId: string) => string
+}) {
   const summary = useResource(() => api.personClipSummary(clip.clip_id), [clip.clip_id])
   return (
     <aside className="panel" aria-label="Database clip">
@@ -14,8 +16,8 @@ export function StoredClipPanel({ clip, onClose }: { clip: PersonClip; onClose: 
       </div>
       <p>{formatTime(clip.start_seconds)}–{formatTime(clip.end_seconds)}</p>
       <h3>Participants</h3>
-      <ul>{clip.person_ids.map((id) => <li key={id}><Link to={`/participants/${encodeURIComponent(id)}`}>{id}</Link></li>)}</ul>
-      <p className="muted small">Stored analysis signals. These records do not carry a staff review status.</p>
+      <ul>{clip.person_ids.map((id) => <li key={id}><Link to={personHref(id)}>{id}</Link></li>)}</ul>
+      <p className="muted small">Stored analysis signals. Review status: <strong>{clip.review_status}</strong>.</p>
       {summary.error && <ErrorState error={summary.error} onRetry={summary.reload} />}
       {!summary.data && !summary.error && <Loading what="clip analysis" />}
       {summary.data && <>
@@ -24,7 +26,7 @@ export function StoredClipPanel({ clip, onClose }: { clip: PersonClip; onClose: 
           ? <p className="muted">Unscored: no visible-affect observations.</p>
           : <>
             <p>{summary.data.impact_score.toFixed(3)}</p>
-            <p className="muted small">1.1^{clip.person_ids.length} × {summary.data.visible_affect.positive?.toFixed(6)} mean positive score. A ranking suggestion for review, not model confidence.</p>
+            <p className="muted small">ln(1 + {(clip.end_seconds - clip.start_seconds).toFixed(2)} s ÷ 3) × 1.5^{clip.person_ids.length} × {summary.data.visible_affect.positive?.toFixed(6)} mean positive score. A ranking suggestion for review, not model confidence.</p>
           </>}
 
         <h3>Activity</h3>

@@ -5,9 +5,9 @@ import { readFileSync } from 'node:fs'
 // staff annotations yet; stored analysis and person clips come directly from the database.
 test.describe.configure({ mode: 'serial' })
 
-// Participant footage must never appear in saved artifacts (Constitution I): the player is masked.
+// Participant footage must never appear in saved artifacts (Constitution I): players and thumbnails are masked.
 const shot = (page: Page, name: string) =>
-  page.screenshot({ path: `test-results/screens/${name}.png`, fullPage: true, mask: [page.locator('video')] })
+  page.screenshot({ path: `test-results/screens/${name}.png`, fullPage: true, mask: [page.locator('video, .clip-tile__thumb')] })
 
 async function signIn(page: Page) {
   await page.goto('/')
@@ -43,7 +43,7 @@ test('dashboard lists the real footage', async ({ page }) => {
   expect(total).toBeGreaterThan(0)
   await expect(page.locator('.stat').filter({ has: page.getByText('Clips', { exact: true }) })).toContainText(String(total))
   await expect(page.getByRole('region', { name: 'Review queue' })).toHaveCount(0)
-  await expect(page.getByText('No pipeline output has been imported yet.')).toBeVisible()
+  await expect(page.getByText('No pipeline output has been imported yet.')).toHaveCount(0)
   await expect(page.locator('.stat', { hasText: 'Participants' })).toContainText('100')
   await shot(page, '02-dashboard')
   await page.getByRole('link', { name: 'Review', exact: true }).click()
@@ -70,6 +70,27 @@ test('video view plays, shows who is on screen, and seeks on click', async ({ pa
   // The title shows whole seconds; the seek lands on the exact interval start.
   await expect.poll(async () => Math.abs((await currentTime(page)) - (m * 60 + s))).toBeLessThan(1)
   await shot(page, '03-video')
+})
+
+test('review opens one excerpt and restricts playback to its stored bounds', async ({ page }) => {
+  await signIn(page)
+  const [clip] = await (await page.request.get('/api/person-clips?limit=1')).json()
+  await page.getByRole('link', { name: 'Review', exact: true }).click()
+  await page.getByRole('region', { name: 'Database clips' }).getByRole('link').first().click()
+  await expect(page).toHaveURL(new RegExp(`/review/clips/${clip.clip_id}$`))
+  await playerReady(page)
+  await expect(page.locator('video')).not.toHaveAttribute('controls')
+  await expect(page.locator('.timeline')).toHaveCount(0)
+  await expect.poll(() => currentTime(page)).toBeCloseTo(clip.start_seconds, 2)
+  const slider = page.getByRole('slider', { name: 'Clip position' })
+  await expect(slider).toHaveAttribute('max', String(clip.end_seconds - clip.start_seconds))
+  await page.locator('video').evaluate((video: HTMLVideoElement, end: number) => { video.currentTime = end + 1 }, clip.end_seconds)
+  await expect.poll(() => currentTime(page)).toBeCloseTo(clip.end_seconds, 2)
+  await page.getByRole('button', { name: 'Play clip', exact: true }).click()
+  await expect.poll(() => currentTime(page)).toBeLessThan(clip.end_seconds)
+  await page.getByRole('button', { name: 'Pause clip', exact: true }).click()
+  await page.getByRole('button', { name: 'Back to clips' }).click()
+  await expect(page.getByRole('heading', { name: 'Review', exact: true })).toBeVisible()
 })
 
 test('participant view follows one person across videos', async ({ page }) => {
@@ -131,12 +152,12 @@ test('create, edit, history, reject, and export a human annotation', async ({ pa
   expect(csv).toContain('Spoken Performance,activity')
   expect(csv).toContain('HUMAN,EDITED')
 
-  // Rejected annotations leave normal views but stay available on request.
+  // Rejected annotations leave the video view; their history keeps them auditable.
   await page.goto('/participants/Person_0001')
   await page.getByRole('link', { name: /Spoken Performance/ }).click()
   await page.getByRole('complementary', { name: 'Review annotation' }).getByRole('button', { name: 'Reject' }).click()
   await expect(page.getByRole('complementary', { name: 'Review annotation' }).locator('.badges').getByText('REJECTED', { exact: true })).toBeVisible()
   await expect(page.locator('.timeline').getByRole('button', { name: /^Spoken Performance/ })).toHaveCount(0)
-  await page.getByLabel('Show rejected annotations').check()
-  await expect(page.locator('.timeline').getByRole('button', { name: /^Spoken Performance/ })).toBeVisible()
+  await expect(page.getByLabel('Show rejected annotations')).toHaveCount(0)
+  await expect(page.getByRole('complementary', { name: 'Review annotation' }).locator('.history')).toContainText('REJECTED')
 })

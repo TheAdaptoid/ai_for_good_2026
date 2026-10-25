@@ -32,6 +32,7 @@ async function fixture(page: Page) {
   const routes: Record<string, unknown> = {
     '/auth/me': { staff_id: 1, username: 'synthetic-staff-with-a-long-username', is_active: true },
     '/videos': [video], '/videos/7': video, '/videos/7/participants': people,
+    '/activity-counts': [{ activity_label: 'Synthetic singing', count: 3 }, { activity_label: 'Synthetic dancing', count: 1 }],
     '/participants': [{ person_id: 'Person_0001', video_count: 1, detection_count: 2 }],
     '/participants/Person_0001': { person_id: 'Person_0001', videos: [{ ...video, ...people[0] }] },
     '/person-clips': [{ clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], mean_positive_score: 0.5, impact_score: 0.55, created_at: '2026-10-25T00:00:00Z' }],
@@ -56,16 +57,16 @@ async function fits(page: Page) {
 
 async function capture(page: Page, name: string) {
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('light')
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(243, 242, 247)')
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#581b9e')
   if (await page.locator('.sidebar').count()) {
-    await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+    await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   } else {
     await expect(page.locator('.login__card')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   }
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `test-results/design/${name}.png`, fullPage: true,
-    mask: [page.locator('video')], maskColor: '#000000' })
+    mask: [page.locator('video, .clip-tile__thumb')], maskColor: '#000000' })
 }
 
 async function readable(page: Page) {
@@ -100,9 +101,9 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
     for (const card of await page.locator('.stat').all()) {
-      await expect(card).toHaveCSS('background-color', 'rgb(244, 244, 245)')
-      await expect(card.locator('.stat__value')).toHaveCSS('color', 'rgb(88, 27, 158)')
-      await expect(card.locator('.stat__label')).toHaveCSS('color', 'rgb(88, 27, 158)')
+      await expect(card).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+      await expect(card.locator('.stat__value')).toHaveCSS('color', 'rgb(32, 28, 37)')
+      await expect(card.locator('.stat__icon')).toBeVisible()
     }
     await expect(page.getByRole('region', { name: 'Totals' }).getByText('Participants', { exact: true })).toBeVisible()
     await readable(page)
@@ -151,18 +152,12 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByText('Download database records or staff review data as CSV or JSON.')).toBeVisible()
     await page.getByText('Export', { exact: true }).click()
     await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
-    await page.getByRole('button', { name: 'Browse participants' }).click()
+    await page.getByRole('link', { name: 'Participants', exact: true }).click()
     await expect(page.getByLabel('Find an anonymous ID')).toBeVisible()
     await page.getByRole('link', { name: 'Review', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Review', level: 1 })).toBeVisible()
-    const queueItem = page.getByRole('region', { name: 'Review queue' }).getByRole('listitem').first()
-    await expect(queueItem).toContainText('1 participant · review priority 2.07')
+    await expect(page.getByRole('region', { name: 'Review queue' })).toHaveCount(0)
     if (width >= 1280) {
-      const link = await queueItem.getByRole('link').boundingBox()
-      const metadata = await queueItem.locator('span').boundingBox()
-      expect(link).not.toBeNull()
-      expect(metadata).not.toBeNull()
-      expect(Math.abs(link!.y - metadata!.y)).toBeLessThan(2)
       const nav = page.getByRole('navigation', { name: 'Main' })
       const dashboard = await nav.getByRole('link', { name: 'Dashboard' }).boundingBox()
       const review = await nav.getByRole('link', { name: 'Review' }).boundingBox()
@@ -170,6 +165,15 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     }
     await fits(page)
     await capture(page, `${name}-queue`)
+
+    await page.getByRole('region', { name: 'Database clips' }).getByRole('link').first().click()
+    await expect(page.getByRole('heading', { name: 'Review clip #8' })).toBeVisible()
+    await expect(page.locator('.timeline')).toHaveCount(0)
+    await expect(page.getByRole('complementary', { name: 'Database clip' })).toContainText('Synthetic singing')
+    await expect(page.getByText('The video file is unavailable on this machine.')).toBeVisible()
+    await fits(page)
+    await readable(page)
+    await capture(page, `${name}-clip-excerpt`)
 
     await page.goto('/videos/7?annotation=1&clip=3')
     const panel = page.getByRole('complementary', { name: 'Review annotation' })
@@ -183,13 +187,13 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByRole('complementary', { name: 'Database clip' })).toContainText('Synthetic singing')
     await expect(page.getByRole('complementary', { name: 'Database clip' })).toContainText('0.500')
     await capture(page, `${name}-database-clip`)
-    await page.getByLabel('Clip filter').selectOption('impact')
+    await page.getByRole('button', { name: 'See top 10 clips' }).click()
     await expect(page.getByRole('region', { name: 'High-impact clips' })).toContainText('Impact score 0.550')
     await expect(page.getByRole('region', { name: 'High-impact clips' }).getByRole('listitem')).toHaveCount(1)
     await fits(page)
     await readable(page)
     await capture(page, `${name}-high-impact`)
-    await page.getByLabel('Clip filter').selectOption('all')
+    await page.getByRole('button', { name: 'Show all clips' }).click()
     await page.goto('/videos/7?annotation=1&clip=3')
     await presence.focus()
     await page.keyboard.press('Enter')

@@ -4,10 +4,12 @@ import { Layout } from './components/Layout'
 import { Loading } from './components/States'
 import { Dashboard } from './pages/Dashboard'
 import { DataView } from './pages/DataView'
+import { Ingestion } from './pages/Ingestion'
 import { Login } from './pages/Login'
 import { NotFound } from './pages/NotFound'
 import { Participants } from './pages/Participants'
 import { Review } from './pages/Review'
+import { ClipReview } from './pages/ClipReview'
 import { VideoView } from './pages/VideoView'
 
 function Gate() {
@@ -19,7 +21,9 @@ function Gate() {
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="review" element={<Review />} />
+        <Route path="review/clips/:clipId" element={<ClipReview />} />
         <Route path="data" element={<DataView />} />
+        <Route path="ingestion" element={<Ingestion />} />
         <Route path="videos/:videoId" element={<VideoView />} />
         <Route path="participants" element={<Participants />} />
         <Route path="participants/:personId" element={<Participants />} />

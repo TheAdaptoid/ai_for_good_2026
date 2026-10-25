@@ -412,3 +412,59 @@ The video filter shows the top ten scored clips per video, with ties ordered by 
 and ID. Scores suggest staff review attention and are separate from confidence or conclusions
 about internal emotional states. This resolves the UI ranking choice left open in D024;
 generation work remains deferred. See [feature specification](design/high-impact-clips.md).
+
+---
+
+## D027 — The Application Uses `data/analysis.sqlite`; No Demo Databases
+
+Decided by the human on 2026-10-25. Supersedes D019.
+
+The running application, migrations, and data fixes use `data/analysis.sqlite`
+(`scripts/serve.py` defaults to it). Demo or alternate working databases such as
+`data/demo.local.sqlite` must not be created or used. Disposable copies made by automated tests
+(for example the Playwright e2e databases) are not application databases and remain allowed.
+
+Because staff accounts, sessions, and review history are now written to the tracked file, check
+for them before committing `data/analysis.sqlite`.
+
+---
+
+## D028 — Impact Score Multiplier Is 1.3
+
+Decided by the human on 2026-10-25. Amends D026.
+
+The stored-clip impact score is `1.3^N × mean positive score` (previously `1.1^N`). N, the mean,
+the top-ten selection, and tie ordering are unchanged from D026. The score remains a ranking
+suggestion for review, not model confidence. The generation pipeline's review-priority heuristic
+(`backend/pipeline/local_analysis.py`, roadmap 002 part 2) is a separate value and still uses 1.1.
+
+---
+
+## D029 — Impact Score Weights Clip Duration
+
+Decided by the human on 2026-10-25. Amends D028.
+
+The stored-clip impact score is `(duration_seconds / 3) × 1.3^N × mean positive score`, where
+`duration_seconds` is the clip's end minus start time. N, the mean, the top-ten selection, and
+tie ordering are unchanged from D026. Longer clips therefore rank higher at equal membership and
+affect. The score remains a ranking suggestion for review, not model confidence.
+
+---
+
+## D030 — Impact Score Multiplier Is 1.5
+
+Decided by the human on 2026-10-25. Amends D029.
+
+The stored-clip impact score is `(duration_seconds / 3) × 1.5^N × mean positive score`. Duration,
+N, the mean, the top-ten selection, and tie ordering are otherwise unchanged from D029.
+
+---
+
+## D031 — Impact Score Uses a Logarithmic Duration Weight
+
+Decided by the human on 2026-10-25. Amends D030.
+
+The stored-clip impact score is `ln(1 + duration_seconds / 3) × 1.5^N × mean positive score`.
+The human chose `ln(1 + s/3)` over `ln(s/3)` and `log10(s)/3` because it is never negative:
+clips under 3 seconds, which are common, keep a small positive weight rather than ranking below
+clips with zero positive affect. Longer clips still rank higher, with diminishing returns.

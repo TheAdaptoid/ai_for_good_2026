@@ -20,6 +20,15 @@ class NoteRequest(_Body):
     note: str | None = Field(default=None, max_length=5000)
 
 
+class ClipEditRequest(_Body):
+    """Omitted values stay unchanged; at least one must be given."""
+    activity_label: str | None = Field(default=None, min_length=1, max_length=200)
+    positive_score: float | None = Field(default=None, ge=0, le=1)
+    neutral_score: float | None = Field(default=None, ge=0, le=1)
+    negative_score: float | None = Field(default=None, ge=0, le=1)
+    create_activity_label: bool = False  # add activity_label as a new active activity label
+
+
 class CreateAnnotationRequest(NoteRequest):
     video_id: int
     label_id: int

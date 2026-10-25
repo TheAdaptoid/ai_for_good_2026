@@ -4,21 +4,44 @@ import { expect, it } from 'vitest'
 import { ME, mockApi, renderAt, VIDEO } from './helpers'
 
 it('browses stored clips across pages using database IDs and exact times', async () => {
-  const clips = Array.from({ length: 11 }, (_, index) => ({ clip_id: index + 1, video_id: 7,
+  const clips = Array.from({ length: 21 }, (_, index) => ({ clip_id: index + 1, video_id: 7,
     start_seconds: index + 0.25, end_seconds: index + 0.75, person_ids: ['Person_0001'], created_at: 'now' }))
-  const calls = mockApi({ 'GET /api/auth/me': ME, 'GET /api/videos': [{ ...VIDEO, person_clip_count: 11 }],
-    'GET /api/clips': [], 'GET /api/person-clips': ({ url }: { url: URL }) => {
+  const calls = mockApi({ 'GET /api/auth/me': ME, 'GET /api/videos': [{ ...VIDEO, person_clip_count: 21 }],
+    'GET /api/clips': [], 'GET /api/person-clips/status-counts': { UNREVIEWED: 19, ACCEPTED: 0, EDITED: 0, DEFERRED: 2 },
+    'GET /api/person-clips': ({ url }: { url: URL }) => {
       const offset = Number(url.searchParams.get('offset'))
-      return clips.slice(offset, offset + Number(url.searchParams.get('limit')))
+      const status = url.searchParams.get('review_status')
+      const matching = status === 'DEFERRED' ? clips.slice(0, 2) : status ? [] : clips
+      return matching.slice(offset, offset + Number(url.searchParams.get('limit')))
     } })
   renderAt('/review')
-  expect(await screen.findByText('Showing 1–10 of 11')).toBeInTheDocument()
-  await userEvent.click(screen.getByRole('button', { name: 'Next clips' }))
-  expect(await screen.findByText('Showing 11–11 of 11')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: /Songwriting camp/ })).toHaveAttribute('href', '/videos/7?t=10.25&person_clip=11')
-  expect(screen.getByRole('button', { name: 'Next clips' })).toBeDisabled()
-  await userEvent.click(screen.getByRole('button', { name: 'Previous clips' }))
-  expect(await screen.findByText('Showing 1–10 of 11')).toBeInTheDocument()
+  expect(await screen.findByText('Showing 1–10 of 21')).toBeInTheDocument()
+  expect(document.querySelectorAll('.clip-tile video')).toHaveLength(0)
+  expect(document.querySelectorAll('.clip-tile img')).toHaveLength(10)
+  expect(document.querySelector('.clip-tile img')).toHaveAttribute('src', '/api/person-clips/1/thumbnail')
+  expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'First page' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+  await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
+  expect(await screen.findByText('Showing 11–20 of 21')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Last page' }))
+  expect(await screen.findByText('Showing 21–21 of 21')).toBeInTheDocument()
+  expect(screen.getByText('Page 3 of 3')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Songwriting camp/ })).toHaveAttribute('href', '/review/clips/21')
+  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Last page' })).toBeDisabled()
+  await userEvent.click(screen.getByRole('button', { name: 'Previous page' }))
+  expect(await screen.findByText('Showing 11–20 of 21')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'First page' }))
+  expect(await screen.findByText('Showing 1–10 of 21')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'All 21' })).toHaveAttribute('aria-pressed', 'true')
+  await userEvent.click(screen.getByRole('button', { name: 'Deferred 2' }))
+  expect(await screen.findByText('Showing 1–2 of 2')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Deferred 2' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.queryByRole('button', { name: 'Next page' })).not.toBeInTheDocument()
+  expect(calls.some((call) => call.path === '/api/person-clips?review_status=DEFERRED&limit=10&offset=0')).toBe(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Accepted 0' }))
+  expect(await screen.findByText('No accepted clips.')).toBeInTheDocument()
   expect(calls.every((call) => call.method === 'GET')).toBe(true)
 })
 

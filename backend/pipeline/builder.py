@@ -70,7 +70,8 @@ def build_import_file(info: PipelineMetadata, videos: Sequence[VideoSignals],
     data = {"format": FORMAT,
             "pipeline": {"name": info.name, "version": info.version,
                          "generated_at": info.generated_at,
-                         "models": [{"name": n, "revision": r} for n, r in info.models]},
+                         "models": [{"name": n, "revision": r} for n, r in info.models],
+                         "parameters": dict(info.parameters)},
             "videos": entries}
     # Round-trip through the parser so a builder bug can never emit a file the importer rejects.
     return parse_import_file(json.dumps(data))

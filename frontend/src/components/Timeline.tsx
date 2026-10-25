@@ -17,6 +17,8 @@ interface Props {
   onSeek: (seconds: number) => void
   onSelect: (annotation: Annotation) => void
   onSelectClip: (clip: ReviewClip) => void
+  /** Where a participant's row label links; defaults to the participant page. */
+  personHref?: (personId: string) => string
 }
 
 const pct = (seconds: number, duration: number) => `${(Math.min(Math.max(seconds, 0), duration) / duration) * 100}%`
@@ -63,7 +65,9 @@ function group(annotations: Annotation[], participants: VideoParticipant[]) {
   return { byPerson, scene, people }
 }
 
-export function Timeline({ duration, storedClips = [], selectedStoredClipId, onSelectStoredClip, clips, annotations, participants, currentTime, selectedId, selectedClipId, onSeek, onSelect, onSelectClip }: Props) {
+const participantPage = (personId: string) => `/participants/${encodeURIComponent(personId)}`
+
+export function Timeline({ duration, storedClips = [], selectedStoredClipId, onSelectStoredClip, clips, annotations, participants, currentTime, selectedId, selectedClipId, onSeek, onSelect, onSelectClip, personHref = participantPage }: Props) {
   const { byPerson, scene, people } = useMemo(() => group(annotations, participants), [annotations, participants])
   const step = tickStep(duration)
   const ticks = Array.from({ length: Math.floor(duration / step) + 1 }, (_, i) => i * step)
@@ -93,10 +97,9 @@ export function Timeline({ duration, storedClips = [], selectedStoredClipId, onS
                 onClick={() => { onSeek(clip.start_seconds); onSelectStoredClip?.(clip) }} />)}
             </div>
           </div>}
-          <div className="row">
+          {clips.length > 0 && <div className="row">
             <div className="row__label">Review clips</div>
             <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
-              {clips.length === 0 && <span className="row__empty">none yet</span>}
               {clips.map((clip) => (
                 <button key={clip.clip_id} type="button" className={`bar bar--clip ${clip.clip_id === selectedClipId ? 'bar--selected' : ''}`}
                   aria-current={currentTime >= (clip.start_seconds ?? 0) && currentTime <= (clip.end_seconds ?? 0) ? 'time' : undefined}
@@ -111,12 +114,13 @@ export function Timeline({ duration, storedClips = [], selectedStoredClipId, onS
                 </button>
               ))}
             </div>
-          </div>
-          <AnnotationRow label="Scene" annotations={scene} duration={duration} selectedId={selectedId}
-            onSeek={onSeek} onSelect={onSelect} />
+          </div>}
+          {/* Empty rows are omitted; a focused participant view never has scene annotations. */}
+          {scene.length > 0 && <AnnotationRow label="Scene" annotations={scene} duration={duration} selectedId={selectedId}
+            onSeek={onSeek} onSelect={onSelect} />}
           <div className="timeline__people">
             {people.map((person) => (
-              <PersonRow key={person.person_id} personId={person.person_id} intervals={person.intervals}
+              <PersonRow key={person.person_id} personId={person.person_id} href={personHref(person.person_id)} intervals={person.intervals}
                 currentIntervalIndex={person.intervals.findIndex((interval) => currentTime >= interval.start_seconds && currentTime <= interval.end_seconds)}
                 annotations={byPerson.get(person.person_id) ?? NONE} duration={duration}
                 selectedId={selectedId} onSeek={onSeek} onSelect={onSelect} />
@@ -163,12 +167,12 @@ function AnnotationRow({ label, ...props }: RowProps & { label: string }) {
 
 // Memoized so playhead updates do not re-render hundreds of presence bars.
 const PersonRow = memo(function PersonRow(
-  { personId, intervals, currentIntervalIndex, ...props }: RowProps & { personId: string; intervals: readonly PresenceInterval[]; currentIntervalIndex: number },
+  { personId, href, intervals, currentIntervalIndex, ...props }: RowProps & { personId: string; href: string; intervals: readonly PresenceInterval[]; currentIntervalIndex: number },
 ) {
   return (
     <div className="row">
       <div className="row__label">
-        <Link to={`/participants/${encodeURIComponent(personId)}`}>{personId}</Link>
+        <Link to={href}>{personId}</Link>
       </div>
       <div className="row__track" onClick={(e) => seekFromTrack(e, props.duration, props.onSeek)}>
         {intervals.map((interval, index) => (

@@ -9,6 +9,7 @@ const DATASETS: { kind: ExportKind; label: string }[] = [
   { kind: 'engagement', label: 'Visible affect observations' },
   { kind: 'activity-history', label: 'Activity correction history' },
   { kind: 'engagement-history', label: 'Visible affect correction history' },
+  { kind: 'clip-review-history', label: 'Clip review history' },
   { kind: 'annotations', label: 'Staff annotations' }, { kind: 'history', label: 'Staff review history' },
 ]
 

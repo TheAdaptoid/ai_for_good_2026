@@ -82,7 +82,7 @@ function ParticipantDetail({ personId }: { personId: string }) {
       {detail.data.map((v) => (
         <article className="appearance" key={v.video_id}>
           <header>
-            <h3><Link to={`/videos/${v.video_id}?t=${v.first_seconds.toFixed(2)}`}>{v.title}</Link></h3>
+            <h3><Link to={`/videos/${v.video_id}?person=${encodeURIComponent(personId)}&t=${v.first_seconds.toFixed(2)}`}>{v.title}</Link></h3>
             <span className="muted small">
               {formatTime(v.first_seconds)} – {formatTime(v.last_seconds)} · {v.detection_count} detections
             </span>
@@ -90,7 +90,7 @@ function ParticipantDetail({ personId }: { personId: string }) {
           <div className="mini-track" aria-label={`${personId} presence in ${v.title}`}>
             {v.intervals.map((i) => (
               <Link key={i.start_seconds} className="bar bar--presence"
-                to={`/videos/${v.video_id}?t=${i.start_seconds.toFixed(2)}`}
+                to={`/videos/${v.video_id}?person=${encodeURIComponent(personId)}&t=${i.start_seconds.toFixed(2)}`}
                 style={{ left: `${(i.start_seconds / v.duration) * 100}%`,
                   width: `max(3px, ${((i.end_seconds - i.start_seconds) / v.duration) * 100}%)` }}
                 title={`On screen ${formatTime(i.start_seconds)}–${formatTime(i.end_seconds)}`}
@@ -100,7 +100,7 @@ function ParticipantDetail({ personId }: { personId: string }) {
           {(storedClips.data ?? []).some((clip) => clip.video_id === v.video_id) && <p className="clip-chips">
             <span className="muted small">Clips: </span>
             {(storedClips.data ?? []).filter((clip) => clip.video_id === v.video_id).map((clip) =>
-              <Link key={clip.clip_id} className="chip" to={`/videos/${v.video_id}?t=${clip.start_seconds}&person_clip=${clip.clip_id}`}>
+              <Link key={clip.clip_id} className="chip" to={`/videos/${v.video_id}?person=${encodeURIComponent(personId)}&t=${clip.start_seconds}&person_clip=${clip.clip_id}`}>
                 {formatTime(clip.start_seconds)}–{formatTime(clip.end_seconds)}
               </Link>)}
           </p>}
@@ -109,7 +109,7 @@ function ParticipantDetail({ personId }: { personId: string }) {
               <span className="muted small">Review clips: </span>
               {(clipsByVideo.get(v.video_id) ?? []).map((c) => (
                 <Link key={c.clip_id} className="chip"
-                  to={`/videos/${v.video_id}?t=${(c.start_seconds ?? 0).toFixed(2)}&clip=${c.clip_id}`}
+                  to={`/videos/${v.video_id}?person=${encodeURIComponent(personId)}&t=${(c.start_seconds ?? 0).toFixed(2)}&clip=${c.clip_id}`}
                   title={c.priority_score === null ? 'Review priority not computed' : `Review priority ${c.priority_score.toFixed(2)}`}>
                   {formatTime(c.start_seconds)}–{formatTime(c.end_seconds)}
                 </Link>
@@ -120,7 +120,7 @@ function ParticipantDetail({ personId }: { personId: string }) {
             <ul className="moment-list">
               {(byVideo.get(v.video_id) ?? []).map((a) => (
                 <li key={a.annotation_id}>
-                  <Link to={`/videos/${v.video_id}?t=${(a.start_seconds ?? 0).toFixed(2)}&annotation=${a.annotation_id}`}>
+                  <Link to={`/videos/${v.video_id}?person=${encodeURIComponent(personId)}&t=${(a.start_seconds ?? 0).toFixed(2)}&annotation=${a.annotation_id}`}>
                     {formatTime(a.start_seconds)}–{formatTime(a.end_seconds)} {a.label_name}
                   </Link>
                   <span className="muted small"> {a.label_category}</span>

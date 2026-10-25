@@ -63,3 +63,4 @@ class PipelineMetadata:
     version: str
     generated_at: str | None = None
     models: tuple[tuple[str, str | None], ...] = ()  # (model name, revision)
+    parameters: tuple[tuple[str, str | int | float | bool | None], ...] = ()  # run configuration

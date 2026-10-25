@@ -1,13 +1,21 @@
 # Staff application design
 
-The shipping React application is a staff review tool. Preserve its neutral light palette,
-system typography, vertical sidebar navigation, and player/timeline/panel workflow. The direction-decision
+The shipping React application is a staff review tool. Preserve its light palette, system
+typography, vertical sidebar navigation, and player/timeline/panel workflow.
+
+Visual language (2026-10-25, from staff-supplied reference dashboards): a light purple-gray canvas
+(`--bg #f3f2f7`) with white cards on it, 16px card corners (`--radius-lg`) and 10px control
+corners (`--radius`), a hairline border plus one soft offset shadow (`--shadow`). The sidebar is a
+white rail whose links carry an authored line icon (`components/Icon.tsx`, 24px grid, 1.75 stroke)
+and a solid purple pill for the active page. Dashboard stat tiles pair a tinted icon disc with a
+large ink number and a muted label; they stack icon-over-value below 1600px. Table headers are small
+uppercase labels on a faint well, except the Data view, which shows exact CSV column names. The direction-decision
 HTML sketches under `.impeccable/mocks/decision/` are exploratory references, not shipping screens
 or a mandate to replace the application's visual identity during a refinement pass.
 
 Use the shared tokens and controls in `frontend/src/styles.css`. Body text is 16px with 1.5 line
-height; headings establish hierarchy without decorative labels. White surfaces
-use fine borders, no shadows. Always use light mode, including when the device prefers dark mode;
+height; headings establish hierarchy without decorative labels. White cards
+use a hairline border and the shared soft shadow; do not nest a bordered card inside another. Always use light mode, including when the device prefers dark mode;
 native form controls use `color-scheme: light`. Blue indicates actions/activity; teal indicates
 observations;
 purple indicates clips. Source and review status remain separate, explicit text badges. Dashed

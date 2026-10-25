@@ -27,3 +27,25 @@ export function useResource<T>(load: () => Promise<T>, deps: readonly unknown[])
   const reload = useCallback(() => setVersion((v) => v + 1), [])
   return { data: state.data, error: state.error, loading: state.loading, reload }
 }
+
+/**
+ * Intro progress from 0 to 1 (ease-out) once ``ready`` turns true, on page load or refresh.
+ * Reduced-motion users, and environments without matchMedia (unit tests), start at 1.
+ */
+export function useIntro(ready: boolean, duration = 1000) {
+  const still = typeof window.matchMedia !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const [t, setT] = useState(still ? 1 : 0)
+  useEffect(() => {
+    if (!ready || still) return
+    let frame = 0
+    const start = performance.now()
+    const step = (now: number) => {
+      const p = Math.min(1, Math.max(0, (now - start) / duration)) // a frame stamped before start must not go negative
+      setT(1 - (1 - p) ** 3)
+      if (p < 1) frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [ready, still, duration])
+  return t
+}

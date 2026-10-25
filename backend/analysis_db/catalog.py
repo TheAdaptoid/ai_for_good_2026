@@ -7,6 +7,7 @@ a view of machine signals, not review records.
 import sqlite3
 from pathlib import Path
 
+from analysis_db.stored_analysis import CLIP_REVIEW_STATUSES
 from analysis_db.contracts import (
     REVIEW_TABLES, ParticipantDetail, ParticipantSummary, ParticipantVideo, PresenceInterval,
     ReviewStatus, VideoParticipant, VideoSummary,
@@ -36,9 +37,19 @@ def list_videos(connection: sqlite3.Connection,
         f"SELECT video_id, COUNT(*) FROM ReviewClip {where} GROUP BY video_id", params))
     stored_clips = dict(connection.execute(
         f"SELECT video_id, COUNT(*) FROM Clip {where} GROUP BY video_id", params))
+    clip_statuses: dict[int, dict[str, int]] = {}
+    for vid, status, count in connection.execute(
+            f"SELECT video_id, review_status, COUNT(*) FROM Clip {where} GROUP BY video_id, review_status", params):
+        clip_statuses.setdefault(vid, {})[status] = count
     human_annotations = dict(connection.execute(
-        "SELECT video_id, COUNT(*) FROM Annotation WHERE source='HUMAN'"
-        + (" AND video_id=?" if video_id is not None else "") + " GROUP BY video_id", params))
+        "SELECT video_id, COUNT(*) FROM ("
+        " SELECT video_id, 'annotation' AS kind, annotation_id AS id FROM Annotation WHERE source='HUMAN'"
+        " UNION SELECT f.video_id, 'activity', a.activity_id FROM ActivityAudit h"
+        " JOIN Activity a ON a.activity_id=h.activity_id JOIN Frame f ON f.frame_id=a.frame_id"
+        " UNION SELECT f.video_id, 'engagement', e.engagement_id FROM EngagementAudit h"
+        " JOIN Engagement e ON e.engagement_id=h.engagement_id"
+        " JOIN FaceDetection d ON d.detection_id=e.detection_id JOIN Frame f ON f.frame_id=d.frame_id"
+        f") {where} GROUP BY video_id", params))
     result = []
     for vid, title, filename, duration, fps in connection.execute(
             f"SELECT video_id, title, filename, duration_seconds, fps FROM Video {where}"
@@ -49,7 +60,8 @@ def list_videos(connection: sqlite3.Connection,
         result.append(VideoSummary(
             vid, title, filename, duration, fps,
             round(duration * fps) if duration and fps else None,
-            people, count, counts, clips.get(vid, 0), stored_clips.get(vid, 0), human_annotations.get(vid, 0)))
+            people, count, counts, clips.get(vid, 0), stored_clips.get(vid, 0), human_annotations.get(vid, 0),
+            {status: clip_statuses.get(vid, {}).get(status, 0) for status in CLIP_REVIEW_STATUSES}))
     return result
 
 
