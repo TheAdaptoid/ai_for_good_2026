@@ -22,3 +22,30 @@ results/
 *.MPEG
 *.mpg
 *.MPG
+
+# Local SQLite state (data/analysis.sqlite itself stays tracked)
+data/*.local.sqlite
+data/*.sqlite-wal
+data/*.sqlite-shm
+data/*.sqlite-journal
+
+# Identity pipeline notebooks resolve Data/, GivenData/ and Models/ against their working directory
+**/Data/IdentityPipelineTop2/
+GivenData/
+Frames/
+FaceCrops/
+IdentityAligned/
+RepresentativeFaces/
+
+# Embeddings
+*.npy
+*.npz
+*.pkl
+
+# Model weights
+models/
+Models/
+*.onnx
+*.pt
+*.pth
+*.ckpt
