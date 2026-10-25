@@ -5,6 +5,7 @@ export function Layout() {
   const { user, logout } = useAuth()
   return (
     <div className="app">
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <header className="topbar">
         <NavLink to="/" className="brand">TPA Video Review</NavLink>
         <nav aria-label="Main">
@@ -16,7 +17,7 @@ export function Layout() {
           <button type="button" onClick={() => void logout()}>Sign out</button>
         </div>
       </header>
-      <main className="content">
+      <main id="main-content" className="content" tabIndex={-1}>
         <Outlet />
       </main>
     </div>

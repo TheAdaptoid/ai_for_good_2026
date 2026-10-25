@@ -13,6 +13,8 @@ export default defineConfig({
   // No traces or videos: they would capture participant footage from the player.
   use: { trace: 'off', video: 'off', screenshot: 'off' },
   projects: [
+    { name: 'design', testMatch: 'design.spec.ts',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5174' } },
     { name: 'current', testMatch: 'workflow.spec.ts',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5174' } },
     { name: 'imported', testMatch: 'imported.spec.ts',

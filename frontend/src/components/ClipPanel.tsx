@@ -21,7 +21,9 @@ export function ClipPanel({ clip, showRejected, version, onSelect, onClose }: Pr
     <aside className="panel" aria-label="Review clip">
       <div className="panel__head">
         <h2>Review clip</h2>
-        <button type="button" className="ghost" onClick={onClose} aria-label="Close clip panel">×</button>
+        <button type="button" className="ghost" onClick={onClose} aria-label="Close clip panel">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
+        </button>
       </div>
       <dl className="facts">
         <dt>Time</dt><dd>{formatTime(clip.start_seconds)} – {formatTime(clip.end_seconds)}</dd>

@@ -90,7 +90,16 @@ export function VideoView() {
           </p>
         </div>
         <button type="button" className="primary" disabled={!fps || !labels.data}
-          onClick={() => { closePanel(); closeClip(); setCreating(true) }}>
+          onClick={() => {
+            // Clear both selections together: separate search-param updates do not compose.
+            setParams((current) => {
+              const next = new URLSearchParams(current)
+              next.delete('annotation')
+              next.delete('clip')
+              return next
+            }, { replace: true })
+            setCreating(true)
+          }}>
           Add annotation
         </button>
       </div>

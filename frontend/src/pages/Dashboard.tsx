@@ -64,7 +64,7 @@ export function Dashboard() {
       {list.length === 0 ? (
         <Empty>No processed videos in the database.</Empty>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="Videos" tabIndex={0}>
           <table className="videos">
             <thead>
               <tr>

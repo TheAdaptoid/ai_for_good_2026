@@ -50,7 +50,9 @@ export function CreateForm({ videoId, fps, labels, participantIds, currentTime, 
     <aside className="panel" aria-label="Add annotation">
       <div className="panel__head">
         <h2>Add annotation</h2>
-        <button type="button" className="ghost" onClick={onClose} aria-label="Close">×</button>
+        <button type="button" className="ghost" onClick={onClose} aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
+        </button>
       </div>
       <p className="muted small">For a moment the pipeline missed. It is saved as source HUMAN, status ACCEPTED.</p>
       <form className="edit-form" onSubmit={submit}>

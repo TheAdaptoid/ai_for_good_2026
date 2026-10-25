@@ -66,42 +66,44 @@ export function Timeline({ duration, clips, annotations, participants, currentTi
   const ticks = Array.from({ length: Math.floor(duration / step) + 1 }, (_, i) => i * step)
 
   return (
-    <div className="timeline" aria-label="Video timeline">
-      <div className="timeline__playhead" style={{ '--at': currentTime / duration } as CSSProperties} aria-hidden />
-      <div className="row row--axis">
-        <div className="row__label">{formatTime(currentTime)}</div>
-        <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
-          {ticks.map((t) => (
-            <span key={t} className="tick" style={{ left: pct(t, duration) }}>{formatTime(t)}</span>
+    <div className="timeline-scroll" role="region" aria-label="Scrollable video timeline" tabIndex={0}>
+      <div className="timeline" aria-label="Video timeline">
+        <div className="timeline__playhead" style={{ '--at': currentTime / duration } as CSSProperties} aria-hidden />
+        <div className="row row--axis">
+          <div className="row__label">{formatTime(currentTime)}</div>
+          <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
+            {ticks.map((t) => (
+              <span key={t} className="tick" style={{ left: pct(t, duration) }}>{formatTime(t)}</span>
+            ))}
+          </div>
+        </div>
+        <div className="row">
+          <div className="row__label">Review clips</div>
+          <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
+            {clips.length === 0 && <span className="row__empty">none yet</span>}
+            {clips.map((clip) => (
+              <button key={clip.clip_id} type="button" className={`bar bar--clip ${clip.clip_id === selectedClipId ? 'bar--selected' : ''}`}
+                style={spanStyle(clip.start_seconds ?? 0, clip.end_seconds ?? 0, duration)}
+                title={`Review clip ${formatTime(clip.start_seconds)}–${formatTime(clip.end_seconds)}, ${clip.person_ids.length} participants${clip.priority_score === null ? ', review priority not computed' : `, review priority ${clip.priority_score.toFixed(2)}`}`}
+                aria-label={`Review clip at ${formatTime(clip.start_seconds)}`}
+                onClick={() => {
+                  onSeek(clip.start_seconds ?? 0)
+                  onSelectClip(clip)
+                }}>
+                {clip.priority_score === null ? '' : clip.priority_score.toFixed(2)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <AnnotationRow label="Scene" annotations={scene} duration={duration} selectedId={selectedId}
+          onSeek={onSeek} onSelect={onSelect} />
+        <div className="timeline__people">
+          {people.map((person) => (
+            <PersonRow key={person.person_id} personId={person.person_id} intervals={person.intervals}
+              annotations={byPerson.get(person.person_id) ?? NONE} duration={duration}
+              selectedId={selectedId} onSeek={onSeek} onSelect={onSelect} />
           ))}
         </div>
-      </div>
-      <div className="row">
-        <div className="row__label">Review clips</div>
-        <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
-          {clips.length === 0 && <span className="row__empty">none yet</span>}
-          {clips.map((clip) => (
-            <button key={clip.clip_id} type="button" className={`bar bar--clip ${clip.clip_id === selectedClipId ? 'bar--selected' : ''}`}
-              style={spanStyle(clip.start_seconds ?? 0, clip.end_seconds ?? 0, duration)}
-              title={`Review clip ${formatTime(clip.start_seconds)}–${formatTime(clip.end_seconds)}, ${clip.person_ids.length} participants${clip.priority_score === null ? ', review priority not computed' : `, review priority ${clip.priority_score.toFixed(2)}`}`}
-              aria-label={`Review clip at ${formatTime(clip.start_seconds)}`}
-              onClick={() => {
-                onSeek(clip.start_seconds ?? 0)
-                onSelectClip(clip)
-              }}>
-              {clip.priority_score === null ? '' : clip.priority_score.toFixed(2)}
-            </button>
-          ))}
-        </div>
-      </div>
-      <AnnotationRow label="Scene" annotations={scene} duration={duration} selectedId={selectedId}
-        onSeek={onSeek} onSelect={onSelect} />
-      <div className="timeline__people">
-        {people.map((person) => (
-          <PersonRow key={person.person_id} personId={person.person_id} intervals={person.intervals}
-            annotations={byPerson.get(person.person_id) ?? NONE} duration={duration}
-            selectedId={selectedId} onSeek={onSeek} onSelect={onSelect} />
-        ))}
       </div>
     </div>
   )
@@ -151,9 +153,10 @@ const PersonRow = memo(function PersonRow(
       </div>
       <div className="row__track" onClick={(e) => seekFromTrack(e, props.duration, props.onSeek)}>
         {intervals.map((interval) => (
-          <span key={interval.start_seconds} className="bar bar--presence"
+          <button key={interval.start_seconds} type="button" className="bar bar--presence"
             style={spanStyle(interval.start_seconds, interval.end_seconds, props.duration)}
             title={`${personId} on screen ${formatTime(interval.start_seconds)}–${formatTime(interval.end_seconds)}`}
+            aria-label={`${personId} on screen ${formatTime(interval.start_seconds)}–${formatTime(interval.end_seconds)}`}
             onClick={() => props.onSeek(interval.start_seconds)} />
         ))}
         <AnnotationBars {...props} />

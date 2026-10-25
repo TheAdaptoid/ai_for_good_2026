@@ -30,6 +30,11 @@ npm run build
   uses ports 8001 (service) and 5174 (Vite), so your working database is never touched.
 - Playwright traces, videos, and failure screenshots are off, and the e2e screenshots mask the
   player, so no participant footage lands in test artifacts (Constitution I).
+- The `design` Playwright project checks synthetic staff screens at 320, 390, 768, and 1280px,
+  plus desktop dark mode. It checks reflow, keyboard presence seeking, skip navigation, and
+  review-panel text contrast; covers login, dashboard, participants, clip/review/create/edit,
+  empty, and error states; and aborts all media requests. Its masked captures stay in ignored
+  `test-results/design/`. Run it with `npm run test:e2e -- --project=design`.
 
 ## API types
 

@@ -43,7 +43,9 @@ export function ReviewPanel({ annotation, labels, fps, participantIds, onChanged
     <aside className="panel" aria-label="Review annotation">
       <div className="panel__head">
         <h2>{annotation.label_name}</h2>
-        <button type="button" className="ghost" onClick={onClose} aria-label="Close review panel">×</button>
+        <button type="button" className="ghost" onClick={onClose} aria-label="Close review panel">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
+        </button>
       </div>
       <StatusBadges annotation={annotation} />
       <dl className="facts">
@@ -70,6 +72,8 @@ export function ReviewPanel({ annotation, labels, fps, participantIds, onChanged
             <button type="button" className="primary" disabled={busy} onClick={() => void review('accept')}>Accept</button>
             <button type="button" disabled={busy} onClick={() => setEditing(true)}>Edit…</button>
             <button type="button" disabled={busy} onClick={() => void review('defer')}>Defer</button>
+          </div>
+          <div className="review-reject">
             <button type="button" className="danger" disabled={busy} onClick={() => void review('reject')}>Reject</button>
           </div>
         </div>
