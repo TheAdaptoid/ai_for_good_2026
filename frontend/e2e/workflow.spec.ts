@@ -115,6 +115,8 @@ test('create, edit, history, reject, and export a human annotation', async ({ pa
 
   // Export current annotations.
   await page.goto('/')
+  await page.getByRole('link', { name: 'Data view', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Spoken Performance')
   await page.getByText('Export').click()
   const download = page.waitForEvent('download')
   await page.getByRole('link', { name: 'Annotations (CSV)' }).click()

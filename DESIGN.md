@@ -20,8 +20,10 @@ dashboard notice introduced in `6004efa`.
 
 The Review navigation item opens `/review`, the dedicated review queue page. The dashboard
 contains video totals and the video table; participant browsing uses a button. Queue metadata
-stays inline with clip information when space allows. Export explains its CSV/JSON downloads
-for current annotations and review history.
+stays inline with clip information when space allows. Data view (`/data`) previews the exact
+database-backed CSV for current annotations or review history and owns the Export menu for
+CSV/JSON downloads. The preview scrolls within its own focusable region; empty datasets retain
+their CSV headers. The video page has a Back button returning to Dashboard.
 
 Below 900px, player/panel and participant/detail layouts stack; the participant list scrolls
 within a bounded area. Below 600px, the vertical navigation stacks above the content and stops sticking. Wide tables

@@ -12,6 +12,7 @@ export function Layout() {
           <NavLink to="/" end>Dashboard</NavLink>
           <NavLink to="/review">Review</NavLink>
           <NavLink to="/participants">Participants</NavLink>
+          <NavLink to="/data">Data view</NavLink>
         </nav>
         <div className="sidebar__user">
           <span className="muted">{user?.username}</span>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, exportUrl, REVIEW_STATUSES, type VideoSummary } from '../api/client'
+import { api, REVIEW_STATUSES, type VideoSummary } from '../api/client'
 import { LatestImport } from '../components/ReviewQueue'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { formatTime } from '../format'
@@ -29,18 +29,6 @@ export function Dashboard() {
     <>
       <div className="page-head">
         <h1>Dashboard</h1>
-        <details className="menu">
-          <summary aria-describedby="export-help">Export</summary>
-          <div className="menu__content">
-            <p id="export-help" className="muted small">Download current annotations or review history as CSV or JSON.</p>
-            <ul>
-              <li><a href={exportUrl('annotations', 'csv')} download>Annotations (CSV)</a></li>
-              <li><a href={exportUrl('annotations', 'json')} download>Annotations (JSON)</a></li>
-              <li><a href={exportUrl('history', 'csv')} download>Review history (CSV)</a></li>
-              <li><a href={exportUrl('history', 'json')} download>Review history (JSON)</a></li>
-            </ul>
-          </div>
-        </details>
       </div>
 
       <section className="stats" aria-label="Totals">

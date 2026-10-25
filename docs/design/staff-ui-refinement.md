@@ -116,3 +116,23 @@ and the shipping-source Impeccable scan pass. Browser coverage includes the repo
 participant-button navigation, export help, and narrow layouts. Captures contain synthetic data
 or masked players and stay git-ignored. No database, API, or Spec 005 implementation changed.
 Agentation notes remain acknowledged for human review; they were not auto-resolved.
+
+## Agentation feedback: Data view and Back button
+
+Added Data view at `/data` in the sidebar and moved Export off the dashboard onto that page.
+A dataset selector previews current annotations or review history using the exact CSV text
+returned by the existing authenticated export endpoint. No parser, sample rows, new endpoint,
+or database write is involved. Empty datasets show their real CSV headers. Loading, retryable
+errors, and expired sessions use the existing client/resource behavior. Downloads retain the
+same four CSV/JSON export choices.
+
+Replaced the video page's Dashboard breadcrumb with a Back button. Its destination remains
+Dashboard. The earlier unreviewed-count clarification remains pending; count semantics did not
+change during these edits.
+
+Validation: 29 Vitest tests (including exact CSV text, quoted commas, dataset switching,
+header-only files, retry, and expired-session coverage), typecheck, lint, build, 16 privacy-safe
+Playwright tests, and Impeccable shipping-source detection pass. Browser tests verify navigation,
+CSV preview, dataset switching, real database-backed downloads, and Back at 320–2400px, including
+the reported 2400×1092 viewport. Synthetic/masked captures were inspected and remain ignored.
+Backend code, application databases, and unfinished Spec 005 work were not modified.

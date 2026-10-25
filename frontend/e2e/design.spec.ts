@@ -24,6 +24,10 @@ const people = [{ person_id: 'Person_0001', first_seconds: 10, last_seconds: 40,
   detection_count: 2, intervals: [{ start_seconds: 10, end_seconds: 40, detection_count: 2 }] }]
 
 async function fixture(page: Page) {
+  const csv: Record<string, string> = {
+    '/exports/annotations': 'annotation_id,label_name,source,review_status\n1,Synthetic singing observation,AI,UNREVIEWED\n',
+    '/exports/history': 'event_id,annotation_id,action\n',
+  }
   const routes: Record<string, unknown> = {
     '/auth/me': { staff_id: 1, username: 'synthetic-staff-with-a-long-username', is_active: true },
     '/videos': [video], '/videos/7': video, '/videos/7/participants': people,
@@ -36,6 +40,7 @@ async function fixture(page: Page) {
   await page.route((url) => url.pathname.startsWith('/api/'), (route) => {
     const path = new URL(route.request().url()).pathname.slice(4)
     if (path.endsWith('/stream')) return route.abort()
+    if (path in csv) return route.fulfill({ contentType: 'text/csv', body: csv[path] })
     return route.fulfill({ json: routes[path] ?? { detail: 'Synthetic missing route' },
       status: path in routes ? 200 : 404 })
   })
@@ -93,10 +98,21 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await fits(page)
     await capture(page, `${name}-dashboard`)
     await expect(page.getByRole('region', { name: 'Review queue' })).toHaveCount(0)
+    await expect(page.getByText('Export', { exact: true })).toHaveCount(0)
+    await page.getByRole('link', { name: 'Data view', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Data view', level: 1 })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Synthetic singing observation')
+    await fits(page)
+    await capture(page, `${name}-data`)
+    await page.getByLabel('Dataset').selectOption('history')
+    await expect(page.getByRole('region', { name: 'CSV preview' })).toHaveText('event_id,annotation_id,action')
+    await page.getByLabel('Dataset').selectOption('annotations')
+    await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Synthetic singing observation')
     await page.getByText('Export', { exact: true }).click()
     await expect(page.getByRole('link', { name: 'Annotations (CSV)' })).toBeVisible()
     await expect(page.getByText('Download current annotations or review history as CSV or JSON.')).toBeVisible()
     await page.getByText('Export', { exact: true }).click()
+    await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
     await page.getByRole('button', { name: 'Browse participants' }).click()
     await expect(page.getByLabel('Find an anonymous ID')).toBeVisible()
     await page.getByRole('link', { name: 'Review', exact: true }).click()
@@ -147,6 +163,8 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByRole('complementary', { name: 'Review clip' })).toBeVisible()
     await fits(page)
     await capture(page, `${name}-clip`)
+    await page.getByRole('button', { name: 'Back', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible()
     await page.goto('/participants/Person_0001')
     await expect(page.getByRole('heading', { name: 'Person_0001' })).toBeVisible()
     await fits(page)

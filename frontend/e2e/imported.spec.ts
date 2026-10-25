@@ -98,6 +98,8 @@ test('participant view shows imported clips and annotations across videos', asyn
 
 test('exports carry the current state of imported and reviewed annotations', async ({ page }) => {
   await signIn(page)
+  await page.getByRole('link', { name: 'Data view', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Visible Neutral Affect')
   await page.getByText('Export').click()
   const download = page.waitForEvent('download')
   await page.getByRole('link', { name: 'Annotations (JSON)' }).click()

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './auth'
 import { Layout } from './components/Layout'
 import { Loading } from './components/States'
 import { Dashboard } from './pages/Dashboard'
+import { DataView } from './pages/DataView'
 import { Login } from './pages/Login'
 import { NotFound } from './pages/NotFound'
 import { Participants } from './pages/Participants'
@@ -18,6 +19,7 @@ function Gate() {
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="review" element={<Review />} />
+        <Route path="data" element={<DataView />} />
         <Route path="videos/:videoId" element={<VideoView />} />
         <Route path="participants" element={<Participants />} />
         <Route path="participants/:personId" element={<Participants />} />

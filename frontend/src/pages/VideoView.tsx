@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError, streamUrl, type Annotation, type ReviewClip } from '../api/client'
 import { ClipPanel } from '../components/ClipPanel'
 import { CreateForm } from '../components/CreateForm'
@@ -11,6 +11,7 @@ import { useResource } from '../hooks'
 import { NotFound } from './NotFound'
 
 export function VideoView() {
+  const navigate = useNavigate()
   const videoId = Number(useParams().videoId)
   const [params, setParams] = useSearchParams()
   const startAt = Number(params.get('t') ?? 0)
@@ -82,7 +83,7 @@ export function VideoView() {
     <div className="video-page">
       <div className="page-head">
         <div>
-          <p className="crumbs"><Link to="/">Dashboard</Link> /</p>
+          <button type="button" className="back-button" onClick={() => void navigate('/')}>Back</button>
           <h1>{summary.title}</h1>
           <p className="muted">
             {formatTime(duration)} · {summary.participant_count} anonymous participants ·{' '}

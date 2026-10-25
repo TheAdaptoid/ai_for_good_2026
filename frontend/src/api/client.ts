@@ -18,6 +18,7 @@ export type ReviewStatus = Schemas['ReviewStatus']
 export type CreateAnnotationRequest = Schemas['CreateAnnotationRequest']
 export type EditRequest = Schemas['EditRequest']
 export type ReviewAction = 'accept' | 'reject' | 'defer'
+export type ExportKind = 'annotations' | 'history'
 
 export const REVIEW_STATUSES: ReviewStatus[] = ['UNREVIEWED', 'ACCEPTED', 'EDITED', 'DEFERRED', 'REJECTED']
 
@@ -60,7 +61,7 @@ async function errorMessage(response: Response): Promise<string> {
   return response.statusText || `request failed (${response.status})`
 }
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, format: 'json' | 'text' = 'json'): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
     credentials: 'same-origin',
@@ -70,7 +71,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   if (response.status === 401 && path !== '/auth/login') unauthorized()
   if (!response.ok) throw new ApiError(response.status, await errorMessage(response))
   if (response.status === 204) return undefined as T
-  return (await response.json()) as T
+  return (format === 'text' ? await response.text() : await response.json()) as T
 }
 
 export interface AnnotationQuery extends Query {
@@ -99,6 +100,7 @@ export const api = {
   clip: (id: number) => request<ReviewClip>('GET', `/clips/${id}`),
   imports: () => request<ImportRun[]>('GET', '/imports'),
   labels: () => request<Label[]>('GET', '/labels?include_inactive=true'),
+  exportCsv: (kind: ExportKind) => request<string>('GET', `/exports/${kind}?format=csv`, undefined, 'text'),
   create: (body: CreateAnnotationRequest) => request<ReviewResult>('POST', '/annotations', body),
   review: (id: number, action: ReviewAction, note: string | null) =>
     request<ReviewResult>('POST', `/annotations/${id}/${action}`, { note }),
@@ -106,5 +108,5 @@ export const api = {
 }
 
 export const streamUrl = (videoId: number) => `/api/videos/${videoId}/stream`
-export const exportUrl = (kind: 'annotations' | 'history', format: 'csv' | 'json') =>
+export const exportUrl = (kind: ExportKind, format: 'csv' | 'json') =>
   `/api/exports/${kind}?format=${format}`
