@@ -54,14 +54,18 @@ async function capture(page: Page, name: string) {
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('light')
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#581b9e')
-  await expect(page.locator('.sidebar, .login__card')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  if (await page.locator('.sidebar').count()) {
+    await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  } else {
+    await expect(page.locator('.login__card')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  }
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `test-results/design/${name}.png`, fullPage: true,
     mask: [page.locator('video')], maskColor: '#000000' })
 }
 
 async function readable(page: Page) {
-  const ratios = await page.locator('.panel h2, .facts dt, .facts dd, .badge, .legend, button.primary').evaluateAll((elements) => {
+  const ratios = await page.locator('.stat__value, .stat__label, .panel h2, .facts dt, .facts dd, .badge, .legend, button.primary').evaluateAll((elements) => {
     const luminance = (color: string) => {
       const channels = color.match(/[\d.]+/g)!.slice(0, 3).map((part) => {
         const value = Number(part) / 255
@@ -91,6 +95,13 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     const name = `${width}-${colorScheme}`
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+    for (const card of await page.locator('.stat').all()) {
+      await expect(card).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+      await expect(card.locator('.stat__value')).toHaveCSS('color', 'rgb(88, 27, 158)')
+      await expect(card.locator('.stat__label')).toHaveCSS('color', 'rgb(88, 27, 158)')
+    }
+    await expect(page.getByRole('region', { name: 'Totals' }).getByText('Participants', { exact: true })).toBeVisible()
+    await readable(page)
     await expect(page.getByRole('button', { name: 'Start feedback mode' })).toBeVisible()
     await expect(page.locator('agentation-toolbar [data-agentation-root]')).toHaveAttribute('data-agentation-theme', 'light')
     await page.keyboard.press('Tab')

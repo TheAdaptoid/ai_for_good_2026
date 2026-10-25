@@ -164,3 +164,15 @@ CSV column/cell rendering, keyboard seeking and highlight color, sampled text co
 media requests were aborted and all captures remain ignored. Shipping Impeccable findings: none;
 only the previously documented non-shipping sketch advisory remains. Backend suites were not
 rerun for these frontend-only changes. No participant media or database files enter this commit.
+
+## Dashboard feedback: gray surfaces and purple statistics
+
+The sidebar and dashboard stat cards now use a light neutral gray (#f4f4f5), while the main
+background remains white. Stat values and labels use the user's purple accent. The dashboard
+stat label is now Participants; anonymous IDs, counts, and database queries are unchanged.
+
+Validation: 32 Vitest tests, typecheck, lint, build, 17 privacy-safe Playwright tests, and the
+shipping Impeccable scan pass. Responsive browser variants check the gray surfaces, purple
+text, updated label, and text contrast. Inspected a synthetic desktop capture. An existing
+unit test exposed a timing race in the separately loaded import status; its assertion now
+waits for that status to appear. No backend suite rerun, database changes, or media artifacts.

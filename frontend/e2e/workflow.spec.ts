@@ -40,7 +40,7 @@ test('dashboard lists the real footage', async ({ page }) => {
   await expect(page.getByText(/No review clips or suggested annotations yet/)).toBeVisible()
   await expect(page.getByRole('region', { name: 'Review queue' })).toHaveCount(0)
   await expect(page.getByText('No pipeline output has been imported yet.')).toBeVisible()
-  await expect(page.locator('.stat', { hasText: 'Anonymous participants' })).toContainText('100')
+  await expect(page.locator('.stat', { hasText: 'Participants' })).toContainText('100')
   await shot(page, '02-dashboard')
   await page.getByRole('link', { name: 'Review', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Review', level: 1 })).toBeVisible()

@@ -34,7 +34,7 @@ export function Dashboard() {
       <section className="stats" aria-label="Totals">
         <Stat label="Videos" value={String(list.length)} />
         <Stat label="Footage" value={formatTime(sum(list, (v) => v.duration_seconds ?? 0))} />
-        <Stat label="Anonymous participants"
+        <Stat label="Participants"
           value={participants.data ? String(participants.data.length) : '…'}
           action={<button type="button" onClick={() => void navigate('/participants')}>Browse participants</button>} />
         <Stat label="Review clips" value={String(clipTotal)} />

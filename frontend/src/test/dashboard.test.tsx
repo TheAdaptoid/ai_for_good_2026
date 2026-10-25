@@ -15,7 +15,7 @@ describe('dashboard', () => {
     const row = (await screen.findByRole('link', { name: 'Songwriting camp' })).closest('tr')!
     expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['1:40', '2', '1', '1', '0', '0', '0', '0'])
     expect(screen.getByRole('link', { name: 'Songwriting camp' })).toHaveAttribute('href', '/videos/7')
-    expect(screen.getByText('Anonymous participants').previousSibling).toHaveTextContent('1')
+    expect(within(screen.getByRole('region', { name: 'Totals' })).getByText('Participants').previousSibling).toHaveTextContent('1')
     expect(screen.queryByText('Export', { exact: true })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Data view' })).toHaveAttribute('href', '/data')
     expect(screen.queryByRole('region', { name: 'Review queue' })).not.toBeInTheDocument()
@@ -28,7 +28,7 @@ describe('dashboard', () => {
     renderAt('/')
     expect(await screen.findByText(/No review clips or suggested annotations yet/)).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(screen.getByText('No pipeline output has been imported yet.')).toBeInTheDocument()
+    expect(await screen.findByText('No pipeline output has been imported yet.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('link', { name: 'Review' }))
     expect(await screen.findByText('No review clips have been imported yet.')).toBeInTheDocument()
   })
