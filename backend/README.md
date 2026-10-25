@@ -232,6 +232,8 @@ uv run python scripts/load_engagement.py --input ../data/csv/face_expression_obs
 - Uses `detection_id`, `positive_score`, `neutral_score`, `negative_score`; other columns stay in the CSV.
 - Rows with all three scores empty (observations the notebook logged as errors) are skipped and counted.
 - Every `detection_id` must exist in `FaceDetection`; duplicates or scores outside 0–1 abort before any write.
+  After a re-clustering run that drops detections (IDs and boxes of the kept ones unchanged), pass
+  `--skip-missing-detections` to reuse the existing scores for the kept detections; skipped rows are counted.
 - One transaction with foreign-key, integrity, and row-count checks; any failure leaves the database unchanged.
 - Scores are derived visual-expression classifications, not measurements of internal emotional state.
 

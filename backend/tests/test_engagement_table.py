@@ -59,7 +59,21 @@ def test_replaces_scores_and_skips_unscored_rows(tmp_path, db):
     source = write(tmp_path / "results.csv",
                    [0, 4, "Person_0001", 0.7, 0.1, 0.2, "Positive"],
                    [1, 8, "Person_0001", "", "", "", ""])
-    assert run(db, source) == {"inserted": 1, "skipped": 1, "detections_without_engagement": 1}
+    assert run(db, source) == {"inserted": 1, "skipped": 1, "skipped_missing_detections": 0,
+                               "detections_without_engagement": 1}
+    assert engagement(db) == [(4, 0.7, 0.2, 0.1)]
+
+
+def test_skip_missing_detections_drops_reclustered_ids(tmp_path, db):
+    source = write(tmp_path / "results.csv",
+                   [0, 4, "Person_0001", 0.7, 0.1, 0.2, "Positive"],
+                   [1, 99, "Person_0001", 0.6, 0.2, 0.2, "Positive"])
+    con = connect_database(db)
+    try:
+        result = replace_engagement(con, source, skip_missing_detections=True)
+    finally:
+        con.close()
+    assert result["inserted"] == 1 and result["skipped_missing_detections"] == 1
     assert engagement(db) == [(4, 0.7, 0.2, 0.1)]
 
 

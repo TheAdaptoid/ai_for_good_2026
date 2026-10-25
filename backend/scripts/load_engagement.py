@@ -19,6 +19,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="face_expression_observations_from_videos.csv")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB,
                         help="existing database file (default: %(default)s)")
+    parser.add_argument("--skip-missing-detections", action="store_true",
+                        help="skip scores for detection_ids no longer in FaceDetection"
+                             " (e.g. after re-clustering) instead of failing")
     return parser
 
 
@@ -30,7 +33,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     try:
-        result = replace_engagement(connection, args.input)
+        result = replace_engagement(connection, args.input,
+                                    skip_missing_detections=args.skip_missing_detections)
     except (DataError, OSError, sqlite3.Error) as exc:
         print(f"error: {exc}; database unchanged", file=sys.stderr)
         return 1
