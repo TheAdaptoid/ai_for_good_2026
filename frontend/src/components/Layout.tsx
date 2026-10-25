@@ -6,13 +6,14 @@ export function Layout() {
   return (
     <div className="app">
       <a className="skip-link" href="#main-content">Skip to content</a>
-      <header className="topbar">
+      <header className="sidebar">
         <NavLink to="/" className="brand">TPA Video Review</NavLink>
         <nav aria-label="Main">
           <NavLink to="/" end>Dashboard</NavLink>
+          <NavLink to="/review">Review</NavLink>
           <NavLink to="/participants">Participants</NavLink>
         </nav>
-        <div className="topbar__user">
+        <div className="sidebar__user">
           <span className="muted">{user?.username}</span>
           <button type="button" onClick={() => void logout()}>Sign out</button>
         </div>

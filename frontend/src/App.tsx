@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Login } from './pages/Login'
 import { NotFound } from './pages/NotFound'
 import { Participants } from './pages/Participants'
+import { Review } from './pages/Review'
 import { VideoView } from './pages/VideoView'
 
 function Gate() {
@@ -16,6 +17,7 @@ function Gate() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
+        <Route path="review" element={<Review />} />
         <Route path="videos/:videoId" element={<VideoView />} />
         <Route path="participants" element={<Participants />} />
         <Route path="participants/:personId" element={<Participants />} />

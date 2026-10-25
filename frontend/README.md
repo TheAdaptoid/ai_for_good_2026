@@ -14,6 +14,10 @@ npm run dev        # http://127.0.0.1:5173 (proxies /api to http://127.0.0.1:800
 
 Sign in with an account created by `backend/scripts/staff.py create <username>`.
 
+Use the vertical navigation to open Dashboard, Review (`/review`), or Participants. The Review
+page holds the review queue, ordered by priority. Export on the dashboard downloads current
+annotations or review history as CSV/JSON.
+
 ## Data source
 
 The staff screens fetch `/api` through FastAPI, which queries the SQLite file selected by the
@@ -54,7 +58,7 @@ npm run build
   uses ports 8001 (service) and 5174 (Vite), so your working database is never touched.
 - Playwright traces, videos, and failure screenshots are off, and the e2e screenshots mask the
   player, so no participant footage lands in test artifacts (Constitution I).
-- The `design` Playwright project checks synthetic staff screens at 320, 390, 768, and 1280px,
+- The `design` Playwright project checks synthetic staff screens at 320, 390, 768, 1280, and 2400px,
   plus a desktop dark device preference to verify the app always stays light. It checks reflow,
   keyboard presence seeking, skip navigation, and
   review-panel text contrast; covers login, dashboard, participants, clip/review/create/edit,

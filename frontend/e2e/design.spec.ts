@@ -47,7 +47,7 @@ async function fits(page: Page) {
 
 async function capture(page: Page, name: string) {
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('light')
-  await expect(page.locator('.topbar, .login__card')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(page.locator('.sidebar, .login__card')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `test-results/design/${name}.png`, fullPage: true,
     mask: [page.locator('video')], maskColor: '#000000' })
@@ -76,9 +76,9 @@ async function readable(page: Page) {
   for (const item of ratios) expect(item.ratio, item.text ?? '').toBeGreaterThanOrEqual(4.5)
 }
 
-for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light'], [1280, 'light'], [1280, 'dark']] as const) {
+for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light'], [1280, 'light'], [1280, 'dark'], [2400, 'light']] as const) {
   test(`${width}px ${colorScheme} device preference: staff screens stay light and keyboard usable`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 900 })
+    await page.setViewportSize({ width, height: width === 2400 ? 1092 : 900 })
     await page.emulateMedia({ colorScheme })
     await fixture(page)
     const name = `${width}-${colorScheme}`
@@ -92,8 +92,30 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByRole('main')).toBeFocused()
     await fits(page)
     await capture(page, `${name}-dashboard`)
+    await expect(page.getByRole('region', { name: 'Review queue' })).toHaveCount(0)
     await page.getByText('Export', { exact: true }).click()
     await expect(page.getByRole('link', { name: 'Annotations (CSV)' })).toBeVisible()
+    await expect(page.getByText('Download current annotations or review history as CSV or JSON.')).toBeVisible()
+    await page.getByText('Export', { exact: true }).click()
+    await page.getByRole('button', { name: 'Browse participants' }).click()
+    await expect(page.getByLabel('Find an anonymous ID')).toBeVisible()
+    await page.getByRole('link', { name: 'Review', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Review', level: 1 })).toBeVisible()
+    const queueItem = page.getByRole('region', { name: 'Review queue' }).getByRole('listitem').first()
+    await expect(queueItem).toContainText('1 participant · review priority 2.07')
+    if (width >= 1280) {
+      const link = await queueItem.getByRole('link').boundingBox()
+      const metadata = await queueItem.locator('span').boundingBox()
+      expect(link).not.toBeNull()
+      expect(metadata).not.toBeNull()
+      expect(Math.abs(link!.y - metadata!.y)).toBeLessThan(2)
+      const nav = page.getByRole('navigation', { name: 'Main' })
+      const dashboard = await nav.getByRole('link', { name: 'Dashboard' }).boundingBox()
+      const review = await nav.getByRole('link', { name: 'Review' }).boundingBox()
+      expect(review!.y).toBeGreaterThan(dashboard!.y + dashboard!.height)
+    }
+    await fits(page)
+    await capture(page, `${name}-queue`)
 
     await page.goto('/videos/7?annotation=1&clip=3')
     const panel = page.getByRole('complementary', { name: 'Review annotation' })
@@ -136,9 +158,12 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByText('No processed videos in the database.')).toBeVisible()
     await fits(page)
     await capture(page, `${name}-empty`)
+    await page.getByRole('link', { name: 'Review', exact: true }).click()
+    await expect(page.getByText('No review clips have been imported yet.')).toBeVisible()
+    await capture(page, `${name}-queue-empty`)
     await page.route((url) => url.pathname === '/api/videos',
       (route) => route.fulfill({ status: 503, json: { detail: 'Synthetic service unavailable. Try again.' } }))
-    await page.reload()
+    await page.goto('/')
     await expect(page.getByRole('alert')).toContainText('Synthetic service unavailable.')
     await fits(page)
     await capture(page, `${name}-error`)

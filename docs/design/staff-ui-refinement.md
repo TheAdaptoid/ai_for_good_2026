@@ -97,3 +97,22 @@ Validation: 25 Vitest tests, 15 privacy-safe Playwright tests (including toolbar
 appearance), 38 catalog/API tests, typecheck, lint, production build, and shipping-source
 Impeccable detection all pass. The backend tests report one existing Starlette/AnyIO deprecation
 warning. Spec 005 implementation and the previously unfinished files remain untouched.
+
+## Agentation feedback: navigation and review page
+
+Implemented feedback 1, 2, 5, 6, and 7: queue metadata sits inline with clip information;
+Browse participants is a button; the queue is on `/review`; navigation is a vertical sidebar
+with a Review entry. On narrow screens the vertical navigation stacks above the content.
+For feedback 3, Export opens CSV/JSON downloads for current annotations or review history;
+the menu now explains this purpose. Video files are not exported.
+
+Feedback 4, “Unreviewed Clips,” requires a count-semantics clarification. The existing column
+counts individual annotations, not distinct clips. Its data and label remain unchanged pending
+the user's choice; it must not be relabeled as clips while displaying annotation counts.
+
+Validation: 25 Vitest tests, typecheck, lint, production build, 16 privacy-safe Playwright tests,
+and the shipping-source Impeccable scan pass. Browser coverage includes the reported
+2400×1092 viewport, inline queue metadata, vertically arranged navigation, the dedicated page,
+participant-button navigation, export help, and narrow layouts. Captures contain synthetic data
+or masked players and stay git-ignored. No database, API, or Spec 005 implementation changed.
+Agentation notes remain acknowledged for human review; they were not auto-resolved.

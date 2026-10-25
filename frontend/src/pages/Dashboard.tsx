@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api, exportUrl, REVIEW_STATUSES, type VideoSummary } from '../api/client'
-import { LatestImport, ReviewQueue } from '../components/ReviewQueue'
+import { LatestImport } from '../components/ReviewQueue'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { formatTime } from '../format'
 import { useResource } from '../hooks'
@@ -15,6 +15,7 @@ function sum(videos: VideoSummary[], pick: (v: VideoSummary) => number): number 
 }
 
 export function Dashboard() {
+  const navigate = useNavigate()
   const videos = useResource(api.videos, [])
   const participants = useResource(api.participants, [])
 
@@ -29,13 +30,16 @@ export function Dashboard() {
       <div className="page-head">
         <h1>Dashboard</h1>
         <details className="menu">
-          <summary>Export</summary>
-          <ul>
-            <li><a href={exportUrl('annotations', 'csv')} download>Annotations (CSV)</a></li>
-            <li><a href={exportUrl('annotations', 'json')} download>Annotations (JSON)</a></li>
-            <li><a href={exportUrl('history', 'csv')} download>Review history (CSV)</a></li>
-            <li><a href={exportUrl('history', 'json')} download>Review history (JSON)</a></li>
-          </ul>
+          <summary aria-describedby="export-help">Export</summary>
+          <div className="menu__content">
+            <p id="export-help" className="muted small">Download current annotations or review history as CSV or JSON.</p>
+            <ul>
+              <li><a href={exportUrl('annotations', 'csv')} download>Annotations (CSV)</a></li>
+              <li><a href={exportUrl('annotations', 'json')} download>Annotations (JSON)</a></li>
+              <li><a href={exportUrl('history', 'csv')} download>Review history (CSV)</a></li>
+              <li><a href={exportUrl('history', 'json')} download>Review history (JSON)</a></li>
+            </ul>
+          </div>
         </details>
       </div>
 
@@ -44,7 +48,7 @@ export function Dashboard() {
         <Stat label="Footage" value={formatTime(sum(list, (v) => v.duration_seconds ?? 0))} />
         <Stat label="Anonymous participants"
           value={participants.data ? String(participants.data.length) : '…'}
-          link={<Link to="/participants">Browse participants</Link>} />
+          action={<button type="button" onClick={() => void navigate('/participants')}>Browse participants</button>} />
         <Stat label="Review clips" value={String(clipTotal)} />
         <Stat label="Annotations" value={String(annotationTotal)} />
       </section>
@@ -57,8 +61,6 @@ export function Dashboard() {
           add annotations by hand.
         </p>
       )}
-
-      <ReviewQueue videos={list} />
 
       <h2 className="section-title">Videos</h2>
       {list.length === 0 ? (
@@ -99,12 +101,12 @@ export function Dashboard() {
   )
 }
 
-function Stat({ label, value, link }: { label: string; value: string; link?: ReactNode }) {
+function Stat({ label, value, action }: { label: string; value: string; action?: ReactNode }) {
   return (
     <div className="stat">
       <span className="stat__value">{value}</span>
       <span className="stat__label">{label}</span>
-      {link}
+      {action}
     </div>
   )
 }

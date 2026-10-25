@@ -28,7 +28,7 @@ export function ReviewQueue({ videos }: { videos: VideoSummary[] }) {
               <Link to={`/videos/${clip.video_id}?t=${(clip.start_seconds ?? 0).toFixed(2)}&clip=${clip.clip_id}`}>
                 {titles.get(clip.video_id) ?? `Video ${clip.video_id}`} · {formatTime(clip.start_seconds)}–{formatTime(clip.end_seconds)}
               </Link>
-              <span className="muted small">
+              <span className="muted">
                 {' '}{clip.person_ids.length} participant{clip.person_ids.length === 1 ? '' : 's'} ·{' '}
                 {clip.priority_score === null ? 'review priority not computed' : `review priority ${clip.priority_score.toFixed(2)}`}
               </span>

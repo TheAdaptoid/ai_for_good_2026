@@ -17,6 +17,9 @@ describe('dashboard', () => {
     expect(screen.getByRole('link', { name: 'Songwriting camp' })).toHaveAttribute('href', '/videos/7')
     expect(screen.getByText('Anonymous participants').previousSibling).toHaveTextContent('1')
     expect(screen.getByRole('link', { name: 'Annotations (CSV)' })).toHaveAttribute('href', '/api/exports/annotations?format=csv')
+    expect(screen.queryByRole('region', { name: 'Review queue' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Browse participants' }))
+    expect(await screen.findByLabelText('Find an anonymous ID')).toBeInTheDocument()
   })
 
   it('treats an empty pipeline as normal, not as an error', async () => {
@@ -24,8 +27,9 @@ describe('dashboard', () => {
     renderAt('/')
     expect(await screen.findByText(/No review clips or suggested annotations yet/)).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('No review clips have been imported yet.')).toBeInTheDocument()
     expect(screen.getByText('No pipeline output has been imported yet.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: 'Review' }))
+    expect(await screen.findByText('No review clips have been imported yet.')).toBeInTheDocument()
   })
 
   it('lists imported clips by review priority with the latest import', async () => {
@@ -40,6 +44,9 @@ describe('dashboard', () => {
         counts: { inserted: 12, updated: 0, skipped_protected: 1, clips_inserted: 2, clips_updated: 0,
           clips_skipped_protected: 0, unchanged: 0, clips_unchanged: 0 } }] })
     renderAt('/')
+    expect(await screen.findByText(/Latest pipeline import/)).toHaveTextContent('clip-pipeline 1.0')
+    await userEvent.click(screen.getByRole('link', { name: 'Review' }))
+    expect(await screen.findByRole('heading', { name: 'Review', level: 1 })).toBeInTheDocument()
     const queue = await screen.findByRole('region', { name: 'Review queue' })
     const items = await within(queue).findAllByRole('listitem')
     expect(items[0]).toHaveTextContent('Songwriting camp · 0:10–0:20')
@@ -47,7 +54,6 @@ describe('dashboard', () => {
     expect(items[0].textContent).not.toContain('%')
     expect(items[1]).toHaveTextContent('review priority not computed')
     expect(within(items[0]).getByRole('link')).toHaveAttribute('href', '/videos/7?t=10.00&clip=9')
-    expect(screen.getByText(/Latest pipeline import/)).toHaveTextContent('clip-pipeline 1.0')
     expect(calls.some((c) => c.path === '/api/clips?order=priority&limit=10')).toBe(true)
   })
 

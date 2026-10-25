@@ -1,7 +1,7 @@
 # Staff application design
 
 The shipping React application is a staff review tool. Preserve its neutral light palette,
-system typography, top navigation, and player/timeline/panel workflow. The direction-decision
+system typography, vertical sidebar navigation, and player/timeline/panel workflow. The direction-decision
 HTML sketches under `.impeccable/mocks/decision/` are exploratory references, not shipping screens
 or a mandate to replace the application's visual identity during a refinement pass.
 
@@ -18,8 +18,13 @@ separate from Accept, Edit, and Defer. Forms share label spacing, paired time fi
 messages. Empty states are normal workflow states. Preserve the subtle full-border/background
 dashboard notice introduced in `6004efa`.
 
+The Review navigation item opens `/review`, the dedicated review queue page. The dashboard
+contains video totals and the video table; participant browsing uses a button. Queue metadata
+stays inline with clip information when space allows. Export explains its CSV/JSON downloads
+for current annotations and review history.
+
 Below 900px, player/panel and participant/detail layouts stack; the participant list scrolls
-within a bounded area. Below 600px, navigation reflows and the header stops sticking. Wide tables
+within a bounded area. Below 600px, the vertical navigation stacks above the content and stops sticking. Wide tables
 and timelines scroll within keyboard-focusable regions; do not squeeze their content into
 unreadable rows. Long titles, notes, usernames, and method names must wrap.
 

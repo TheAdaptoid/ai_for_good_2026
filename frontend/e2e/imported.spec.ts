@@ -26,15 +26,17 @@ test('dashboard shows imported counts, the review queue, and the latest import',
   await expect(page.locator('.stat', { hasText: 'Review clips' })).toContainText('4')
   await expect(page.locator('.stat', { hasText: /^\d+Annotations/ })).toContainText('6')
   await expect(page.getByText(/No review clips or suggested annotations yet/)).toHaveCount(0)
+  await expect(page.getByText(/Latest pipeline import/)).toContainText('synthetic-fixture e2e')
+  await page.getByRole('link', { name: 'Review', exact: true }).click()
   const queue = page.getByRole('region', { name: 'Review queue' }).getByRole('listitem')
   await expect(queue).toHaveCount(4)
   await expect(queue.first()).toContainText('review priority 2.31')
   await expect(queue.last()).toContainText('review priority not computed')
-  await expect(page.getByText(/Latest pipeline import/)).toContainText('synthetic-fixture e2e')
 })
 
 test('clip panel lists participants, priority, and annotations; accept keeps AI', async ({ page }) => {
   await signIn(page)
+  await page.getByRole('link', { name: 'Review', exact: true }).click()
   await page.getByRole('region', { name: 'Review queue' }).getByRole('link').first().click()
   const clip = page.getByRole('complementary', { name: 'Review clip' })
   await expect(clip).toContainText('2.31')
