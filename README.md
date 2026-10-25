@@ -10,26 +10,18 @@
 >
 > Caden Wondell <br>
 
-## Running the staff review app locally
+### Elevator pitch
+Random Forest is building an AI-powered video intelligence platform for TPA that turns hours of youth arts footage into searchable activities, meaningful moments, and visual insights, helping staff review and understand camp experiences faster while keeping human judgment and participant privacy at the center.
 
-Everything runs on your machine. Footage and review data are never sent to a cloud service.
+### Project Story
+This project presented a unique challenge to our team, giving us an opportunity to apply our skills to a highly valuable real-world scenario. Inspired by our drive to use technical skills in a positive way to assist The Performance Academy, we were able to overcome challenges related to video processing, model selection, and feasibility constraints to produce an effective dashboard tool. 
 
-```bash
-# 1. Service (Python 3.13 + uv), from backend/
-cd backend
-uv sync --locked
-uv run python scripts/init_db.py --db ../data/analysis.sqlite
-uv run python scripts/staff.py create <username>
-uv run python scripts/serve.py            # http://127.0.0.1:8000
+### Built with
+React, Typescript, Fast API, SQLite, X-Clip, Hugging face, ADAFACE
 
-# 2. Web app (Node 20+), from frontend/ in a second terminal
-cd frontend
-npm ci
-npm run dev                               # open http://127.0.0.1:5173
-```
+### "Try it out" links
+https://github.com/TheAdaptoid/ai_for_good_2026
 
-Put the original videos in `data/videos/` (git-ignored). See `backend/README.md` and
-`frontend/README.md` for details and tests.
 
 ## Problem Statement
 
