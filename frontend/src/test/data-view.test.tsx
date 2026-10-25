@@ -13,11 +13,11 @@ describe('data view', () => {
       'GET /api/exports/annotations': () => csv(ANNOTATIONS),
       'GET /api/exports/history': () => csv(HISTORY) })
     renderAt('/data')
-    expect(await screen.findByRole('region', { name: 'CSV preview' })).toHaveTextContent('"Singing, together"')
-    expect(screen.getByRole('region', { name: 'CSV preview' }).textContent).toBe(ANNOTATIONS)
+    expect(await screen.findByRole('cell', { name: 'Singing, together' })).toBeInTheDocument()
+    expect(screen.getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['annotation_id', 'label_name', 'source', 'review_status'])
     await userEvent.selectOptions(screen.getByLabelText('Dataset'), 'history')
-    expect(await screen.findByText(/2,1,ACCEPTED/)).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'CSV preview' }).textContent).toBe(HISTORY)
+    expect(await screen.findByRole('cell', { name: 'ACCEPTED' })).toBeInTheDocument()
+    expect(screen.getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['event_id', 'annotation_id', 'action'])
     expect(calls.filter((call) => call.path.includes('/exports/')).map((call) => call.path)).toEqual([
       '/api/exports/annotations?format=csv', '/api/exports/history?format=csv',
     ])
@@ -30,7 +30,9 @@ describe('data view', () => {
   it('shows the CSV header when there are no records', async () => {
     mockApi({ 'GET /api/auth/me': ME, 'GET /api/exports/annotations': () => csv('annotation_id,label_name\n') })
     renderAt('/data')
-    expect((await screen.findByRole('region', { name: 'CSV preview' })).textContent).toBe('annotation_id,label_name\n')
+    expect(await screen.findByRole('columnheader', { name: 'annotation_id' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'label_name' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'No records in this dataset yet.' })).toHaveAttribute('colspan', '2')
   })
 
   it('shows service errors and retries the preview', async () => {

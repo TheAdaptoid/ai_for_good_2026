@@ -136,3 +136,31 @@ Playwright tests, and Impeccable shipping-source detection pass. Browser tests v
 CSV preview, dataset switching, real database-backed downloads, and Back at 320–2400px, including
 the reported 2400×1092 viewport. Synthetic/masked captures were inspected and remain ignored.
 Backend code, application databases, and unfinished Spec 005 work were not modified.
+
+## Agentation feedback: table preview, brand colors, and playback position
+
+The CSV preview now renders actual export fields in a semantic table with sticky column
+headers, cell dividers, horizontal scrolling, wrapped values, and an explicit empty state.
+The parser preserves quoted commas, escaped quotes, embedded newlines, and empty fields.
+Downloads and the database-backed export endpoint are unchanged; no sample records are added.
+
+Read only public HTML/CSS from https://jaxtpa.org/ to verify the brand palette; no website
+photographs were loaded. The user's subsequent purple swatch takes precedence: white is the
+main background, with the supplied purple (sRGB #581b9e after respecting its embedded display
+profile) for controls, navigation, focus, and activity bars. The secondary neutral surfaces
+use a subtle purple tint. Brand magenta distinguishes observation bars; brand orange marks
+playback rather than review status. No runtime font or third-party asset requests were added.
+
+Presence intervals and review clips containing the current playback time are highlighted,
+including fractional time updates and seeks. Presence also changes thickness and exposes
+aria-current="time". The vertical playhead is positioned against the entire timeline content,
+so it remains aligned with all rows even when many participant rows require vertical scrolling.
+Memoized participant rows update only when their current interval or other inputs change.
+
+Validation: 32 Vitest tests, typecheck, lint, production build, and 17 privacy-safe Playwright
+tests pass. Browser coverage includes white backgrounds and the supplied purple at 320–2400px,
+CSV column/cell rendering, keyboard seeking and highlight color, sampled text contrast, and a
+40-participant scroll/alignment regression. Synthetic desktop/mobile screenshots were inspected;
+media requests were aborted and all captures remain ignored. Shipping Impeccable findings: none;
+only the previously documented non-shipping sketch advisory remains. Backend suites were not
+rerun for these frontend-only changes. No participant media or database files enter this commit.

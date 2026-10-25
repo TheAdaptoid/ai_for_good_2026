@@ -52,6 +52,8 @@ async function fits(page: Page) {
 
 async function capture(page: Page, name: string) {
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('light')
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#581b9e')
   await expect(page.locator('.sidebar, .login__card')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `test-results/design/${name}.png`, fullPage: true,
@@ -105,7 +107,8 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await fits(page)
     await capture(page, `${name}-data`)
     await page.getByLabel('Dataset').selectOption('history')
-    await expect(page.getByRole('region', { name: 'CSV preview' })).toHaveText('event_id,annotation_id,action')
+    await expect(page.getByRole('columnheader')).toHaveText(['event_id', 'annotation_id', 'action'])
+    await expect(page.getByRole('cell', { name: 'No records in this dataset yet.' })).toBeVisible()
     await page.getByLabel('Dataset').selectOption('annotations')
     await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Synthetic singing observation')
     await page.getByText('Export', { exact: true }).click()
@@ -145,6 +148,8 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await page.keyboard.press('Enter')
     await expect(page.locator('.row--axis .row__label')).toHaveText('0:10')
     await expect(presence).toBeFocused()
+    await expect(presence).toHaveAttribute('aria-current', 'time')
+    await expect(presence).toHaveCSS('background-color', 'rgb(242, 94, 13)')
     expect(await presence.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid')
     await panel.getByRole('button', { name: 'Edit…' }).click()
     await expect(panel.getByRole('button', { name: 'Save edit' })).toBeVisible()
@@ -195,3 +200,24 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await capture(page, `${name}-login`)
   })
 }
+
+test('playhead spans every participant row and remains aligned after scrolling', async ({ page }) => {
+  await fixture(page)
+  await page.route('**/api/videos/7/participants', (route) => route.fulfill({ json: Array.from({ length: 40 }, (_, index) => ({
+    ...people[0], person_id: `Person_${String(index + 1).padStart(4, '0')}`,
+  })) }))
+  await page.goto('/videos/7')
+  await expect(page.getByRole('link', { name: 'Person_0040', exact: true })).toHaveCount(1)
+  const presence = page.getByRole('button', { name: /Person_0001 on screen/ })
+  await presence.click()
+  const geometry = await page.locator('.timeline').evaluate((timeline) => {
+    timeline.scrollTop = timeline.scrollHeight
+    const playhead = timeline.querySelector('.timeline__playhead')!.getBoundingClientRect()
+    const track = timeline.querySelector('.timeline__people .row:last-child .row__track')!.getBoundingClientRect()
+    return { height: playhead.height, viewport: timeline.clientHeight,
+      bottom: playhead.bottom, trackBottom: track.bottom, x: playhead.left, expectedX: track.left + track.width * 0.1 }
+  })
+  expect(geometry.height).toBeGreaterThan(geometry.viewport)
+  expect(Math.abs(geometry.bottom - geometry.trackBottom)).toBeLessThan(2)
+  expect(Math.abs(geometry.x - geometry.expectedX)).toBeLessThan(2)
+})

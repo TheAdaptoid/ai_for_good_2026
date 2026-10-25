@@ -1,20 +1,21 @@
 :root {
   color-scheme: light;
-  --bg: #f6f7f9;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #eef0f4;
-  --border: #d9dde4;
-  --text: #1c2330;
-  --muted: #5d6676;
-  --accent: #2f5fd0;
+  --surface-2: #f0edf3;
+  --border: #ded9e3;
+  --text: #201c25;
+  --muted: #625c6b;
+  --accent: #581b9e;
   --accent-text: #ffffff;
   --danger: #b4232f;
-  --focus: #8a5800;
-  --presence: #c5ccd8;
-  --activity: #2f6fdf;
-  --observation: #087b70;
+  --focus: #581b9e;
+  --presence: #cbc4d2;
+  --activity: #581b9e;
+  --observation: #c21866;
   --annotation-text: #ffffff;
-  --clip: #7a4fc9;
+  --clip: #7851b9;
+  --playback: #f25e0d;
   --ok: #1d7a3a;
   --warn: #9a6400;
   --label-w: 9.5rem;
@@ -139,7 +140,10 @@ table.videos tbody th a { display: inline-block; min-width: 12rem; overflow-wrap
 .menu li a { display: block; padding: .65rem .9rem; text-decoration: none; color: var(--text); }
 .menu li a:hover { background: var(--surface-2); }
 .data-view__dataset { max-width: 20rem; }
-.csv-preview { margin: 1rem 0; padding: 1.25rem; max-height: 65vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: .875rem; line-height: 1.65; }
+.csv-preview { margin: 1rem 0; max-height: 65vh; overflow: auto; font-size: .875rem; }
+.csv-preview thead { position: sticky; top: 0; background: var(--surface-2); }
+.csv-preview table.videos td { border-right: 1px solid var(--border); white-space: pre-wrap; min-width: 10rem; max-width: 30rem; overflow-wrap: anywhere; vertical-align: top; font-variant-numeric: tabular-nums; }
+.csv-preview table.videos td:last-child { border-right: 0; }
 
 /* Review queue */
 .section-title { margin-top: 1.5rem; }
@@ -162,6 +166,7 @@ table.videos tbody th a { display: inline-block; min-width: 12rem; overflow-wrap
 .legend { display: flex; gap: .9rem; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
 .legend__item { display: inline-flex; align-items: center; gap: .3rem; }
 .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+.swatch--playback { background: var(--playback); }
 .swatch--presence { background: var(--presence); }
 .swatch--activity { background: var(--activity); }
 .swatch--observation { background: var(--observation); }
@@ -172,8 +177,9 @@ table.videos tbody th a { display: inline-block; min-width: 12rem; overflow-wrap
   position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   min-width: 40rem; max-height: 60vh; overflow-y: auto;
 }
+.timeline__content { position: relative; }
 .timeline__playhead {
-  position: absolute; top: 0; bottom: 0; width: 2px; background: var(--danger); z-index: 3; pointer-events: none;
+  position: absolute; top: 0; bottom: 0; width: 2px; background: var(--playback); z-index: 3; pointer-events: none;
   left: calc(var(--label-w) + (100% - var(--label-w)) * var(--at));
 }
 .row { display: grid; grid-template-columns: var(--label-w) 1fr; min-height: 38px; border-bottom: 1px solid var(--border); }
@@ -192,6 +198,8 @@ table.videos tbody th a { display: inline-block; min-width: 12rem; overflow-wrap
 .bar { position: absolute; border-radius: 3px; min-height: 0; }
 .bar--presence { top: 6px; height: 24px; padding: 0; border: 0; border-block: 7px solid transparent; background: var(--presence); background-clip: padding-box; }
 .bar--presence:hover:not(:disabled) { background-color: var(--muted); border-color: transparent; }
+.bar--presence[aria-current="time"], .bar--presence[aria-current="time"]:hover:not(:disabled) { background-color: var(--playback); border-block-width: 5px; }
+.bar--clip[aria-current="time"], .bar--clip[aria-current="time"]:hover:not(:disabled) { background-color: color-mix(in srgb, var(--playback) 25%, var(--surface)); border-color: var(--playback); }
 .bar--clip { top: 5px; height: 28px; background: color-mix(in srgb, var(--clip) 25%, transparent); border: 1px solid var(--clip); padding: 0 3px; font-size: .8rem; overflow: hidden; color: var(--text); }
 .bar--annotation {
   top: 5px; height: 28px; padding: 0 4px; border: 1px solid transparent; overflow: hidden;

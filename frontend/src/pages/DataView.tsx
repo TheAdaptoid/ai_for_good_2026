@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { api, exportUrl, type ExportKind } from '../api/client'
 import { ErrorState, Loading } from '../components/States'
 import { useResource } from '../hooks'
+import { parseCsv } from '../csv'
 
 export function DataView() {
   const [kind, setKind] = useState<ExportKind>('annotations')
   const preview = useResource(() => api.exportCsv(kind), [kind])
+  const [columns = [], ...rows] = useMemo(() => parseCsv(preview.data ?? ''), [preview.data])
 
   return (
     <>
@@ -36,7 +38,15 @@ export function DataView() {
       {preview.error && <ErrorState error={preview.error} onRetry={preview.reload} />}
       {preview.loading && <Loading what="CSV preview" />}
       {!preview.loading && preview.data !== undefined && (
-        <pre className="csv-preview" role="region" aria-label="CSV preview" tabIndex={0}>{preview.data}</pre>
+        <div className="csv-preview table-wrap" role="region" aria-label="CSV preview" tabIndex={0}>
+          <table className="videos" aria-label={`${kind === 'annotations' ? 'Annotations' : 'Review history'} CSV preview`}>
+            <thead><tr>{columns.map((column, index) => <th key={index} scope="col">{column}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((row, index) => <tr key={index}>{row.map((value, column) => <td key={column}>{value}</td>)}</tr>)}
+              {rows.length === 0 && <tr><td colSpan={Math.max(columns.length, 1)} className="muted">No records in this dataset yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   )

@@ -122,6 +122,7 @@ export function VideoView() {
               Show rejected annotations
             </label>
             <span className="legend">
+              <span className="legend__item"><i className="swatch swatch--playback" /> current playback position</span>
               <span className="legend__item"><i className="swatch swatch--presence" /> on screen (face detections)</span>
               <span className="legend__item"><i className="swatch swatch--activity" /> activity</span>
               <span className="legend__item"><i className="swatch swatch--observation" /> observation</span>

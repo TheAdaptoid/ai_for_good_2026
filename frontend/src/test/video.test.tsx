@@ -30,6 +30,22 @@ describe('video view', () => {
     expect(container.querySelector('video')!.currentTime).toBe(30)
   })
 
+  it('moves the active interval highlight with fractional playback time and clears it outside presence', async () => {
+    mockApi(videoRoutes({ current: [] }))
+    const { container } = renderAt('/videos/7')
+    const presence = await screen.findByTitle('Person_0001 on screen 0:30–0:40')
+    const player = container.querySelector('video')!
+    player.currentTime = 32.15
+    fireEvent.timeUpdate(player)
+    expect(presence).toHaveAttribute('aria-current', 'time')
+    player.currentTime = 41
+    fireEvent.timeUpdate(player)
+    expect(presence).not.toHaveAttribute('aria-current')
+    player.currentTime = 5
+    fireEvent.timeUpdate(player)
+    expect(screen.getByRole('button', { name: 'Review clip at 0:00' })).toHaveAttribute('aria-current', 'time')
+  })
+
   it('labels clip review priority as a plain number, separate from confidence', async () => {
     mockApi(videoRoutes({ current: [annotation()] }))
     renderAt('/videos/7')

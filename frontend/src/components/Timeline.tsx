@@ -68,41 +68,45 @@ export function Timeline({ duration, clips, annotations, participants, currentTi
   return (
     <div className="timeline-scroll" role="region" aria-label="Scrollable video timeline" tabIndex={0}>
       <div className="timeline" aria-label="Video timeline">
-        <div className="timeline__playhead" style={{ '--at': currentTime / duration } as CSSProperties} aria-hidden />
-        <div className="row row--axis">
-          <div className="row__label">{formatTime(currentTime)}</div>
-          <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
-            {ticks.map((t) => (
-              <span key={t} className="tick" style={{ left: pct(t, duration) }}>{formatTime(t)}</span>
+        <div className="timeline__content">
+          <div className="timeline__playhead" style={{ '--at': Math.min(1, Math.max(0, currentTime / duration)) } as CSSProperties} aria-hidden />
+          <div className="row row--axis">
+            <div className="row__label">{formatTime(currentTime)}</div>
+            <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
+              {ticks.map((t) => (
+                <span key={t} className="tick" style={{ left: pct(t, duration) }}>{formatTime(t)}</span>
+              ))}
+            </div>
+          </div>
+          <div className="row">
+            <div className="row__label">Review clips</div>
+            <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
+              {clips.length === 0 && <span className="row__empty">none yet</span>}
+              {clips.map((clip) => (
+                <button key={clip.clip_id} type="button" className={`bar bar--clip ${clip.clip_id === selectedClipId ? 'bar--selected' : ''}`}
+                  aria-current={currentTime >= (clip.start_seconds ?? 0) && currentTime <= (clip.end_seconds ?? 0) ? 'time' : undefined}
+                  style={spanStyle(clip.start_seconds ?? 0, clip.end_seconds ?? 0, duration)}
+                  title={`Review clip ${formatTime(clip.start_seconds)}–${formatTime(clip.end_seconds)}, ${clip.person_ids.length} participants${clip.priority_score === null ? ', review priority not computed' : `, review priority ${clip.priority_score.toFixed(2)}`}`}
+                  aria-label={`Review clip at ${formatTime(clip.start_seconds)}`}
+                  onClick={() => {
+                    onSeek(clip.start_seconds ?? 0)
+                    onSelectClip(clip)
+                  }}>
+                  {clip.priority_score === null ? '' : clip.priority_score.toFixed(2)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <AnnotationRow label="Scene" annotations={scene} duration={duration} selectedId={selectedId}
+            onSeek={onSeek} onSelect={onSelect} />
+          <div className="timeline__people">
+            {people.map((person) => (
+              <PersonRow key={person.person_id} personId={person.person_id} intervals={person.intervals}
+                currentIntervalIndex={person.intervals.findIndex((interval) => currentTime >= interval.start_seconds && currentTime <= interval.end_seconds)}
+                annotations={byPerson.get(person.person_id) ?? NONE} duration={duration}
+                selectedId={selectedId} onSeek={onSeek} onSelect={onSelect} />
             ))}
           </div>
-        </div>
-        <div className="row">
-          <div className="row__label">Review clips</div>
-          <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>
-            {clips.length === 0 && <span className="row__empty">none yet</span>}
-            {clips.map((clip) => (
-              <button key={clip.clip_id} type="button" className={`bar bar--clip ${clip.clip_id === selectedClipId ? 'bar--selected' : ''}`}
-                style={spanStyle(clip.start_seconds ?? 0, clip.end_seconds ?? 0, duration)}
-                title={`Review clip ${formatTime(clip.start_seconds)}–${formatTime(clip.end_seconds)}, ${clip.person_ids.length} participants${clip.priority_score === null ? ', review priority not computed' : `, review priority ${clip.priority_score.toFixed(2)}`}`}
-                aria-label={`Review clip at ${formatTime(clip.start_seconds)}`}
-                onClick={() => {
-                  onSeek(clip.start_seconds ?? 0)
-                  onSelectClip(clip)
-                }}>
-                {clip.priority_score === null ? '' : clip.priority_score.toFixed(2)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <AnnotationRow label="Scene" annotations={scene} duration={duration} selectedId={selectedId}
-          onSeek={onSeek} onSelect={onSelect} />
-        <div className="timeline__people">
-          {people.map((person) => (
-            <PersonRow key={person.person_id} personId={person.person_id} intervals={person.intervals}
-              annotations={byPerson.get(person.person_id) ?? NONE} duration={duration}
-              selectedId={selectedId} onSeek={onSeek} onSelect={onSelect} />
-          ))}
         </div>
       </div>
     </div>
@@ -144,7 +148,7 @@ function AnnotationRow({ label, ...props }: RowProps & { label: string }) {
 
 // Memoized so playhead updates do not re-render hundreds of presence bars.
 const PersonRow = memo(function PersonRow(
-  { personId, intervals, ...props }: RowProps & { personId: string; intervals: readonly PresenceInterval[] },
+  { personId, intervals, currentIntervalIndex, ...props }: RowProps & { personId: string; intervals: readonly PresenceInterval[]; currentIntervalIndex: number },
 ) {
   return (
     <div className="row">
@@ -152,8 +156,9 @@ const PersonRow = memo(function PersonRow(
         <Link to={`/participants/${encodeURIComponent(personId)}`}>{personId}</Link>
       </div>
       <div className="row__track" onClick={(e) => seekFromTrack(e, props.duration, props.onSeek)}>
-        {intervals.map((interval) => (
+        {intervals.map((interval, index) => (
           <button key={interval.start_seconds} type="button" className="bar bar--presence"
+            aria-current={index === currentIntervalIndex ? 'time' : undefined}
             style={spanStyle(interval.start_seconds, interval.end_seconds, props.duration)}
             title={`${personId} on screen ${formatTime(interval.start_seconds)}–${formatTime(interval.end_seconds)}`}
             aria-label={`${personId} on screen ${formatTime(interval.start_seconds)}–${formatTime(interval.end_seconds)}`}
