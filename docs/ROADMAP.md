@@ -28,7 +28,7 @@ built:
 |---|---|---|
 | `001-annotation-data-model` | 001 | COMMITTED |
 | `002-fastapi-service` | 003 + 004 (service and staff auth combined) | COMMITTED |
-| next | 005 + 006 + 007 + 008 (React app: dashboard, video, participant, review) | PLANNED |
+| `003-react-app` | 005 + 006 + 007 + 008 (React app: dashboard, video, participant, review) | COMMITTED |
 | later | 002 clip and annotation generation pipeline | DEFERRED by the human |
 
 ---

@@ -14,7 +14,10 @@ COOKIE = "tpa_session"
 
 
 def get_db(request: Request) -> Iterator[sqlite3.Connection]:
-    with closing(connect_database(request.app.state.db_path, must_exist=True)) as connection:
+    # One connection per request; FastAPI may run this dependency and the route on different
+    # threadpool threads, but never at the same time.
+    with closing(connect_database(request.app.state.db_path, must_exist=True,
+                                  check_same_thread=False)) as connection:
         yield connection
 
 

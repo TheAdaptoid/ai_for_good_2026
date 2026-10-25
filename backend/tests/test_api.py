@@ -100,6 +100,29 @@ def test_every_operation_requires_session(anon):
     assert anon.get("/api/health").json() == {"status": "ok"}
 
 
+def test_request_connection_works_across_threads(db, anon):
+    # Regression: FastAPI may run the get_db dependency and the route on different threadpool
+    # threads; a default sqlite3 connection then raised ProgrammingError (seen in e2e runs).
+    import threading
+    from types import SimpleNamespace
+    from api.auth import get_db
+    dependency = get_db(SimpleNamespace(app=anon.app))
+    connection = next(dependency)
+    errors = []
+
+    def use():
+        try:
+            connection.execute("SELECT 1").fetchone()
+        except Exception as exc:  # noqa: BLE001 - recorded for the assertion below
+            errors.append(exc)
+
+    worker = threading.Thread(target=use)
+    worker.start()
+    worker.join()
+    dependency.close()
+    assert errors == []
+
+
 def test_startup_refuses_database_without_staff_tables(tmp_path, videos_dir):
     db_path = tmp_path / "old.sqlite"
     initialize_database(db_path)
@@ -295,3 +318,12 @@ def test_real_database_reads_are_interactive(tmp_path, videos_dir):
     assert time.perf_counter() - started < 1.0
     detail = client.get("/api/participants/Person_0001").json()
     assert len(detail["videos"]) >= 1
+
+
+def test_openapi_script_prints_schema():
+    import subprocess
+    import sys
+    script = Path(__file__).resolve().parents[1] / "scripts" / "openapi.py"
+    result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "/api/videos" in json.loads(result.stdout)["paths"]

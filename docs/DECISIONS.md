@@ -328,3 +328,27 @@ and no cloud identity provider.
 `torch` stays pinned at `2.8.0`. The CUDA 12.8 index applies only when `sys_platform != 'darwin'`,
 so macOS installs the standard CPU/MPS wheel and `uv sync --locked` works on team Macs (Constitution
 "code MUST run on CPU"). CUDA validation still requires Linux.
+
+---
+
+## D022 — Frontend Testing
+
+The human asked for Playwright for frontend testing.
+
+- `npm run test:e2e`: Playwright (Chromium) drives the real app against the real FastAPI service.
+  The service runs on a fresh copy of the tracked `data/analysis.sqlite`, built by
+  `frontend/e2e/start-backend.sh` (ports 8001 and 5174), so the working database is never touched.
+- `npm test`: Vitest + Testing Library component and workflow tests with a mocked `fetch`. These
+  cover states the real data cannot produce yet (AI suggestions, review clips).
+- Linting uses oxlint, as shipped by the Vite template.
+
+---
+
+## D023 — No Participant Footage in Test Artifacts or AI Context
+
+Playwright traces, videos, and failure screenshots are disabled. Deliberate screenshots mask the
+`<video>` element.
+
+AI coding assistants must not open screenshots, traces, or frames that show participant footage
+(Constitution I). This was violated once on 2026-10-24, when an unmasked e2e screenshot was
+viewed. The artifact was deleted and the masking was added.

@@ -7,21 +7,24 @@ from analysis_db.contracts import (
 from analysis_db.paths import SCHEMA_PATH
 
 
-def connect_database(path: Path, *, must_exist: bool = False,
-                     read_only: bool = False) -> sqlite3.Connection:
+def connect_database(path: Path, *, must_exist: bool = False, read_only: bool = False,
+                     check_same_thread: bool = True) -> sqlite3.Connection:
     """Open a connection with foreign keys ON and explicit transaction control.
 
     ``must_exist=True`` uses a ``mode=rw`` URI so a missing file raises instead
     of being created. ``read_only=True`` uses ``mode=ro`` and rejects writes;
-    it also requires an existing database.
+    it also requires an existing database. ``check_same_thread=False`` is for callers that hand
+    one connection between threads sequentially (FastAPI dependencies and routes).
     """
     resolved = Path(path).resolve()
     if must_exist or read_only:
         mode = "ro" if read_only else "rw"
         uri = resolved.as_uri() + f"?mode={mode}"
-        connection = sqlite3.connect(uri, uri=True, isolation_level=None)
+        connection = sqlite3.connect(uri, uri=True, isolation_level=None,
+                                     check_same_thread=check_same_thread)
     else:
-        connection = sqlite3.connect(resolved, isolation_level=None)
+        connection = sqlite3.connect(resolved, isolation_level=None,
+                                     check_same_thread=check_same_thread)
     connection.execute("PRAGMA foreign_keys = ON")
     if connection.execute("PRAGMA foreign_keys").fetchone() != (1,):
         connection.close()
