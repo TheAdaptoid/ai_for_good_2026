@@ -449,3 +449,41 @@ def test_real_image_processor_routes_selected_frames_without_weights(fake_classi
     assert result.num_frames == 8
     assert result.selected_frame_indices == (0, 4, 8, 13, 17, 22, 26, 31)
     assert [p.label for p in result.predictions] == ["Dancing", "Walking"]
+
+
+def test_prepared_batch_stays_on_cpu_and_returns_every_row(fake_classifier):
+    from transformers import VideoMAEImageProcessor, XCLIPConfig, XCLIPModel
+    torch.manual_seed(42)
+    fake = fake_classifier
+    fake.model = XCLIPModel(XCLIPConfig(
+        text_config={"vocab_size":64,"hidden_size":16,"intermediate_size":32,
+                     "num_hidden_layers":1,"num_attention_heads":4,
+                     "max_position_embeddings":16,"bos_token_id":1,"eos_token_id":3},
+        vision_config={"hidden_size":16,"intermediate_size":32,"num_hidden_layers":1,
+                       "num_attention_heads":4,"image_size":12,"patch_size":4,
+                       "num_frames":8,"mit_hidden_size":16,"mit_intermediate_size":32,
+                       "mit_num_hidden_layers":1,"mit_num_attention_heads":4},
+        projection_dim=16,prompt_num_attention_heads=4,prompt_layers=1,
+        attn_implementation="eager",
+    )).eval()
+    fake.processor.image_processor = VideoMAEImageProcessor(
+        size={"shortest_edge":12},crop_size={"height":12,"width":12})
+    fake.processor.tokenizer = lambda *a, **k: {
+        "input_ids": torch.tensor([[1,2,3],[1,4,3]]),
+        "attention_mask": torch.ones((2,3),dtype=torch.long),
+    }
+    clips = [np.zeros((8,12,12,3),np.uint8), np.full((8,12,12,3),220,np.uint8)]
+    batch = fake.prepare_batch(clips,["Walking","Dancing"])
+    assert batch.inputs["pixel_values"].shape == (2,8,3,12,12)
+    assert all(t.device.type == "cpu" for t in batch.inputs.values())
+    results = fake.classify_prepared_batch(batch)
+    assert len(results) == 2
+    for clip, result in zip(clips,results):
+        single = fake.classify(clip,["Walking","Dancing"])
+        actual = {p.label:p.logit for p in result.predictions}
+        expected = {p.label:p.logit for p in single.predictions}
+        assert actual == pytest.approx(expected,abs=1e-4)
+        assert sum(p.score for p in result.predictions) == pytest.approx(1)
+    assert len(fake.classify_batch(clips[:1],["Walking","Dancing"])) == 1
+    with pytest.raises(ValueError):
+        fake.prepare_batch([], ["Walking"])

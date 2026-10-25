@@ -159,6 +159,20 @@ def test_runtime_paths_are_backend_derived():
             "A video of people {activity}.")
 
 
+def test_explicit_fp32_loads_original_precision_on_cuda(runtime, monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    classifier = XCLIPClassifier(device="cuda", precision="fp32")
+    event = next(e for e in runtime.events if e[0] == "model")
+    assert event[2]["dtype"] == torch.float32
+    assert classifier.dtype == torch.float32
+
+
+@pytest.mark.parametrize("precision", ["invalid", "fp16"])
+def test_invalid_or_half_cpu_precision_is_rejected(runtime, precision):
+    with pytest.raises(ValueError, match="precision|FP16"):
+        XCLIPClassifier(device="cpu", precision=precision)
+
+
 @pytest.mark.parametrize("device", ["cpu", "auto"])
 def test_cpu_initialization_pins_local_safetensors_and_eval(runtime, device):
     classifier = XCLIPClassifier(device=device)

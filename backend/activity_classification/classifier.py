@@ -3,8 +3,8 @@
 Ported from the standalone notebook implementation. The combined
 ``XCLIPProcessor(...)`` call is deliberately avoided: Transformers 4.57.6 can
 drop the ``videos`` keyword, so the tokenizer and image-processor components
-are routed explicitly. On CUDA the local checkpoint runs in FP16 and always
-with eager attention; on CPU it runs in FP32. Inference reads only local
+are routed explicitly. CUDA defaults to FP16, with an explicit FP32 override;
+CPU uses FP32. Both use eager attention. Inference reads only local
 backend assets at the pinned revision.
 """
 
@@ -23,6 +23,7 @@ import numpy as np
 from activity_classification.contracts import (
     ActivityPrediction,
     ClassificationResult,
+    PreparedBatch,
     RGBFrames,
 )
 from activity_classification.runtime import (
@@ -212,6 +213,7 @@ class XCLIPClassifier:
         device: str = "auto",
         model_path: str | Path | None = None,
         cache_dir: str | Path | None = None,
+        precision: str | None = None,
     ) -> None:
         started = perf_counter()
         use_direct_path, cache_root = resolve_model_source(model_path, cache_dir)
@@ -234,7 +236,12 @@ class XCLIPClassifier:
                 "CUDA is unavailable. Check the NVIDIA driver and PyTorch CUDA "
                 "installation, or select device='cpu'."
             )
-        self.dtype = torch.float16 if self.device.type == "cuda" else torch.float32
+        if precision not in (None, "fp16", "fp32"):
+            raise ValueError("precision must be fp16 or fp32")
+        if precision == "fp16" and self.device.type != "cuda":
+            raise ValueError("FP16 precision requires CUDA")
+        self.dtype = (torch.float16 if precision == "fp16" or
+                      (precision is None and self.device.type == "cuda") else torch.float32)
         self.model_id = MODEL_ID
         self.model_revision = MODEL_REVISION
 
@@ -291,6 +298,104 @@ class XCLIPClassifier:
         if self.device.type == "cuda":
             torch.cuda.synchronize(self.device)
         self.load_time_seconds = float(perf_counter() - started)
+
+    def prepare_batch(self, clips, activities, *, prompt_template=DEFAULT_PROMPT_TEMPLATE,
+                      descriptions=None) -> PreparedBatch:
+        """Validate and preprocess clips on CPU for a separate inference consumer."""
+        import torch
+        started = perf_counter()
+        if not clips:
+            raise ValueError("A batch must contain at least one clip")
+        candidates = prepare_candidates(activities, prompt_template=prompt_template,
+                                        descriptions=descriptions)
+        inputs = dict(self.processor.tokenizer(
+            [c.prompt for c in candidates], padding=True, truncation=False,
+            return_tensors="pt", return_token_type_ids=False))
+        if inputs["input_ids"].shape[-1] > self.model.config.text_config.max_position_embeddings:
+            raise ValueError("A prompt exceeds the checkpoint token limit; prompts are never truncated")
+        pixels, counts, selections = [], [], []
+        for frames in clips:
+            rgb = validate_rgb_frames(frames)
+            indices = np.linspace(0, len(rgb) - 1, self.num_frames, dtype=np.int64)
+            selected = [rgb[int(i)] for i in indices]
+            values = self.processor.image_processor.preprocess(
+                videos=selected, return_tensors="pt", input_data_format="channels_last")["pixel_values"]
+            expected = (1, self.num_frames, 3, self.image_size, self.image_size)
+            if tuple(values.shape) != expected:
+                raise ValueError(f"Expected pixel_values shape {expected}")
+            pixels.append(values)
+            counts.append(len(rgb))
+            selections.append(tuple(int(i) for i in indices))
+        inputs["pixel_values"] = torch.cat(pixels, dim=0)
+        if any(t.device.type != "cpu" for t in inputs.values()):
+            raise ValueError("Prepared batch tensors must stay on CPU")
+        return PreparedBatch(inputs, tuple(candidates), tuple(counts), tuple(selections),
+                             float(perf_counter() - started))
+
+    def classify_batch(self, clips, activities, *, prompt_template=DEFAULT_PROMPT_TEMPLATE,
+                       descriptions=None):
+        batch = self.prepare_batch(clips, activities, prompt_template=prompt_template,
+                                   descriptions=descriptions)
+        return self.classify_prepared_batch(batch)
+
+    def classify_prepared_batch(self, batch: PreparedBatch):
+        """Run one forward pass; returned per-clip times are amortized batch shares."""
+        import torch
+        cuda = self.device.type == "cuda"
+        inputs = {}
+        output = logits = scores = None
+        started = perf_counter()
+        size = len(batch.input_frame_counts)
+        if not size:
+            raise ValueError("A batch must contain at least one clip")
+        try:
+            if cuda:
+                torch.cuda.synchronize(self.device)
+                torch.cuda.reset_peak_memory_stats(self.device)
+            with torch.inference_mode():
+                for name, tensor in batch.inputs.items():
+                    options = {"device": self.device}
+                    if tensor.is_floating_point():
+                        options["dtype"] = self.dtype
+                    inputs[name] = tensor.to(**options)
+                output = self.model(**inputs)
+                logits = output.logits_per_video.float()
+                if tuple(logits.shape) != (size, len(batch.candidates)) or not torch.isfinite(logits).all().item():
+                    raise ValueError("Model logits must have finite values and one row per clip")
+                scores = torch.softmax(logits, dim=-1)
+                if not torch.isfinite(scores).all().item():
+                    raise ValueError("Model scores must be finite")
+                logit_rows, score_rows = logits.cpu().tolist(), scores.cpu().tolist()
+                if cuda:
+                    torch.cuda.synchronize(self.device)
+            inference = float(perf_counter() - started)
+            allocated = float(torch.cuda.max_memory_allocated(self.device) / 2**20) if cuda else None
+            reserved = float(torch.cuda.max_memory_reserved(self.device) / 2**20) if cuda else None
+            results = []
+            for row in range(size):
+                order = sorted(range(len(batch.candidates)), key=lambda i: -score_rows[row][i])
+                predictions = tuple(ActivityPrediction(
+                    batch.candidates[i].label, batch.candidates[i].prompt,
+                    float(logit_rows[row][i]), float(score_rows[row][i])) for i in order)
+                results.append(ClassificationResult(
+                    predictions=predictions, model=MODEL_ID, model_revision=self.model_revision,
+                    device=str(self.device), dtype=str(self.dtype),
+                    input_frame_count=batch.input_frame_counts[row], num_frames=self.num_frames,
+                    selected_frame_indices=batch.selected_frame_indices[row],
+                    score_type="candidate_relative_softmax",
+                    preprocessing_time_seconds=batch.preprocessing_time_seconds / size,
+                    inference_time_seconds=inference / size,
+                    total_time_seconds=(batch.preprocessing_time_seconds + inference) / size,
+                    peak_gpu_memory_allocated_mib=allocated, peak_gpu_memory_reserved_mib=reserved))
+            return tuple(results)
+        except BaseException as exc:
+            clear_frames(exc.__traceback__)
+            if cuda and isinstance(exc, torch.OutOfMemoryError):
+                raise RuntimeError("CUDA ran out of memory; retry explicitly with device='cpu'") from exc
+            raise
+        finally:
+            inputs.clear()
+            output = logits = scores = None
 
     def classify(
         self,

@@ -26,7 +26,9 @@ def db(tmp_path):
         INSERT INTO Person VALUES ('Person_old');
         INSERT INTO Frame VALUES ('old-frame', 3, 0, 0.0);
         INSERT INTO FaceDetection VALUES (1, 'Person_old', 'old-frame', 0, 0, 5, 5, 0.5);
-        INSERT INTO Activity VALUES (1, 1, 0, 31, 'Dancing', 0.9);
+        INSERT INTO Activity (frame_id,window_start_seconds,window_end_seconds,
+            sample_count,activity_label,score,result_json,sampling_json,config_json,config_hash,input_hash)
+            VALUES ('old-frame',-7.5,7.5,32,'Dancing',0.9,'{}','{}','{}','c','i');
     """)
     con.close()
     return path

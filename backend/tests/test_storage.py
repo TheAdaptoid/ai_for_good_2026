@@ -211,7 +211,7 @@ def test_detection_sql_checks_reject_invalid(tmp_path, make_row, field, value):
         con.close()
 
 
-@pytest.mark.parametrize("start,end,valid", [(0, 30, False), (-16, 15, True)])
+@pytest.mark.parametrize("start,end,valid", [(0, 0, False), (-7.5, 7.5, True)])
 def test_activity_frame_interval(tmp_path, make_row, start, end, valid):
     initialize_database(tmp_path / "db2.sqlite")
     con = connect_database(tmp_path / "db2.sqlite")
@@ -222,9 +222,10 @@ def test_activity_frame_interval(tmp_path, make_row, start, end, valid):
         ensure_person(con, row.person_id)
         ensure_frame(con, row, vid)
         det = ensure_detection(con, row)[0]
-        statement = ("INSERT INTO Activity (detection_id, start_frame, end_frame,"
-                     " activity_label, confidence) VALUES (?, ?, ?, ?, ?)")
-        params = (det, start, end, "walking", 0.5)
+        statement = ("INSERT INTO Activity (frame_id,window_start_seconds,window_end_seconds,"
+                     " sample_count,activity_label,score,result_json,sampling_json,config_json,config_hash,input_hash)"
+                     " VALUES (?, ?, ?, 32, ?, ?, '{}', '{}', '{}', 'c', 'i')")
+        params = (row.frame_id, start, end, "walking", 0.5)
         if valid:
             con.execute(statement, params)
         else:
