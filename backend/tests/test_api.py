@@ -136,6 +136,20 @@ def test_serve_binds_localhost_by_default():
     assert serve_parser().parse_args([]).host == "127.0.0.1"
 
 
+def test_staff_tools_default_to_primary_database(monkeypatch, tmp_path):
+    from scripts.import_pipeline_output import build_parser as import_parser
+    from scripts.staff import build_parser as staff_parser
+
+    monkeypatch.delenv("TPA_DB", raising=False)
+    assert serve_parser().parse_args([]).db == DEFAULT_DB
+    assert staff_parser().parse_args(["create", "staff"]).db == DEFAULT_DB
+    assert import_parser().parse_args(["--input", "results.json"]).db == DEFAULT_DB
+    alternate = tmp_path / "alternate.sqlite"
+    monkeypatch.setenv("TPA_DB", str(alternate))
+    assert serve_parser().parse_args([]).db == alternate
+    assert serve_parser().parse_args(["--db", str(DEFAULT_DB)]).db == DEFAULT_DB
+
+
 # --- Videos and participants ----------------------------------------------------------------
 
 def test_videos_list_and_detail(client):

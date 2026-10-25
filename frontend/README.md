@@ -22,7 +22,7 @@ Its Export menu downloads these datasets as CSV/JSON. The video page's Back butt
 ## Data source
 
 The staff screens fetch `/api` through FastAPI, which queries the SQLite file selected by the
-backend's `--db` option (or `TPA_DB`). The default is `data/analysis.local.sqlite`; an explicit
+backend's `--db` option (or `TPA_DB`). The default is `data/analysis.sqlite`; an explicit
 `--db ../data/demo.local.sqlite` uses that database instead. Frontend test fixtures are used
 only by Vitest/Playwright; they are not loaded as application data or used as API fallbacks.
 

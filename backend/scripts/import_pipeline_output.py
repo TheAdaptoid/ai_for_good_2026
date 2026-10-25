@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from analysis_db.contracts import DataError  # noqa: E402
-from analysis_db.paths import WORKING_DB  # noqa: E402
+from analysis_db.paths import DEFAULT_DB  # noqa: E402
 from analysis_db.pipeline_import import FORMAT, import_file, parse_import_file  # noqa: E402
 from analysis_db.storage import connect_database  # noqa: E402
 
@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
                     " nothing is; reviewed annotations and their clips are never changed, and"
                     " nothing is deleted.")
     parser.add_argument("--input", required=True, type=Path, help="pipeline output JSON")
-    parser.add_argument("--db", type=Path, default=WORKING_DB,
+    parser.add_argument("--db", type=Path, default=DEFAULT_DB,
                         help="existing database file (default: %(default)s)")
     return parser
 

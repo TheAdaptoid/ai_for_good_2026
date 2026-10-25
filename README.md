@@ -18,8 +18,7 @@ Everything runs on your machine. Footage and review data are never sent to a clo
 # 1. Service (Python 3.13 + uv), from backend/
 cd backend
 uv sync --locked
-cp -n ../data/analysis.sqlite ../data/analysis.local.sqlite
-uv run python scripts/init_db.py --db ../data/analysis.local.sqlite
+uv run python scripts/init_db.py --db ../data/analysis.sqlite
 uv run python scripts/staff.py create <username>
 uv run python scripts/serve.py            # http://127.0.0.1:8000
 

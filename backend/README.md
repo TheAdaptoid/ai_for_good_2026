@@ -168,13 +168,13 @@ sampled_result = classifier.classify(sampled.frames, ["Dancing", "Walking", "Sin
 ## Application service (staff sign-in and API)
 
 `api/` is a FastAPI layer over `analysis_db`. Every endpoint except sign-in and `/api/health`
-needs a signed-in staff account. The service writes accounts, sessions, and review history
-to a **git-ignored working database**, `../data/analysis.local.sqlite`, so the tracked
-`../data/analysis.sqlite` stays a read-only seed.
+needs a signed-in staff account. The service reads analysis records and writes accounts,
+sessions, and review history in `../data/analysis.sqlite` by default. Back up this database
+before initialization or replacement. Keep database changes containing local credentials
+and participant/review records out of Git commits.
 
 ```bash
-cp -n ../data/analysis.sqlite ../data/analysis.local.sqlite   # one-time working copy
-uv run python scripts/init_db.py --db ../data/analysis.local.sqlite
+uv run python scripts/init_db.py --db ../data/analysis.sqlite
 uv run python scripts/staff.py create <username>       # prompts for a password (min 8 chars)
 uv run python scripts/serve.py                          # http://127.0.0.1:8000/api/docs
 ```

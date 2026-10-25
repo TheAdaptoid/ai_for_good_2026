@@ -3,7 +3,7 @@ from .contracts import DataError
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB = REPOSITORY_ROOT / "data" / "analysis.sqlite"
-# The running application writes accounts, sessions, and review history here (git-ignored).
+# Optional separate database for local analysis experiments (git-ignored).
 WORKING_DB = REPOSITORY_ROOT / "data" / "analysis.local.sqlite"
 DEFAULT_VIDEO_DIR = REPOSITORY_ROOT / "data" / "videos"
 SCHEMA_PATH = REPOSITORY_ROOT / "backend" / "db" / "schema.sql"

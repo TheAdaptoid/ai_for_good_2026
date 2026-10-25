@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from analysis_db import staff  # noqa: E402
 from analysis_db.contracts import DataError  # noqa: E402
-from analysis_db.paths import WORKING_DB  # noqa: E402
+from analysis_db.paths import DEFAULT_DB  # noqa: E402
 from analysis_db.storage import connect_database  # noqa: E402
 
 
@@ -18,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
                     " machine that hosts the service.")
     parser.add_argument("command", choices=("create", "disable", "enable", "reset-password"))
     parser.add_argument("username")
-    parser.add_argument("--db", type=Path, default=WORKING_DB,
+    parser.add_argument("--db", type=Path, default=DEFAULT_DB,
                         help="existing database file (default: %(default)s)")
     parser.add_argument("--password-stdin", action="store_true",
                         help="read the password from the first line of stdin (for scripts)")
