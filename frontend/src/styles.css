@@ -105,7 +105,7 @@ label.check input { width: auto; }
 .state--error { color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius); background: var(--surface); }
 .state--error p { margin: 0 0 .5rem; }
 .form-error { color: var(--danger); margin: .25rem 0; }
-.notice { background: var(--surface); border-left: 4px solid var(--clip); padding: .75rem 1rem; border-radius: var(--radius); }
+.notice { background: color-mix(in srgb, var(--clip) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--clip) 35%, var(--border)); padding: .75rem 1rem; border-radius: var(--radius); }
 
 /* Login */
 .login { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
