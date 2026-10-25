@@ -31,18 +31,21 @@ def _text(values: Mapping[str, str], column: str) -> str:
     return values[column]
 
 
-def read_table(directory: Path, name: str,
-               parse: Callable[[Mapping[str, str]], tuple]) -> list[tuple]:
-    path = Path(directory) / f"{name}.csv"
+def read_table(path: Path, required: tuple[str, ...],
+               parse: Callable[[Mapping[str, str]], tuple | None]) -> list[tuple]:
+    """Parse every row of a CSV; rows for which parse returns None are skipped."""
+    path = Path(path)
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle, strict=True)
-        missing = [c for c in REQUIRED_COLUMNS[name] if c not in (reader.fieldnames or ())]
+        missing = [c for c in required if c not in (reader.fieldnames or ())]
         if missing:
             raise DataError(f"{path}: missing required column(s): {', '.join(missing)}")
         rows = []
         try:
             for values in reader:
-                rows.append(parse(values))
+                row = parse(values)
+                if row is not None:
+                    rows.append(row)
         except (ValueError, KeyError, csv.Error) as exc:
             raise DataError(f"{path}:{reader.line_num}: {exc}") from exc
         return rows
@@ -66,7 +69,10 @@ def replace_identity_tables(connection: sqlite3.Connection,
             raise ValueError(f"video {filename!r} is not in the Video table")
         return _integer(values, "video_id"), stored[filename]
 
-    video_ids = dict(read_table(directory, "VIDEO", video))
+    def table(name, parse):
+        return read_table(Path(directory) / f"{name}.csv", REQUIRED_COLUMNS[name], parse)
+
+    video_ids = dict(table("VIDEO", video))
 
     def frame(values):
         csv_video = _integer(values, "video_id")
@@ -81,9 +87,9 @@ def replace_identity_tables(connection: sqlite3.Connection,
                 _text(values, "frame_id"),
                 *(finite_number(values, c) for c in ("x1", "y1", "x2", "y2", "det_score")))
 
-    frames = read_table(directory, "FRAME", frame)
-    persons = read_table(directory, "PERSON", lambda values: (_text(values, "person_id"),))
-    detections = read_table(directory, "FACE_DETECTION", detection)
+    frames = table("FRAME", frame)
+    persons = table("PERSON", lambda values: (_text(values, "person_id"),))
+    detections = table("FACE_DETECTION", detection)
 
     connection.execute("BEGIN")
     try:

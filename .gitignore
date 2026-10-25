@@ -36,6 +36,7 @@ Frames/
 FaceCrops/
 IdentityAligned/
 RepresentativeFaces/
+sentiment_outputs/
 
 # Embeddings
 *.npy
