@@ -2,25 +2,30 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-from analysis_db.contracts import DataError, DetectionRow, TABLES, VideoMetadata
+from analysis_db.contracts import (
+    DataError, DetectionRow, IMPORT_TABLES, REVIEW_TABLES, STAFF_TABLES, TABLES, VideoMetadata,
+)
 from analysis_db.paths import SCHEMA_PATH
 
 
-def connect_database(path: Path, *, must_exist: bool = False,
-                     read_only: bool = False) -> sqlite3.Connection:
+def connect_database(path: Path, *, must_exist: bool = False, read_only: bool = False,
+                     check_same_thread: bool = True) -> sqlite3.Connection:
     """Open a connection with foreign keys ON and explicit transaction control.
 
     ``must_exist=True`` uses a ``mode=rw`` URI so a missing file raises instead
     of being created. ``read_only=True`` uses ``mode=ro`` and rejects writes;
-    it also requires an existing database.
+    it also requires an existing database. ``check_same_thread=False`` is for callers that hand
+    one connection between threads sequentially (FastAPI dependencies and routes).
     """
     resolved = Path(path).resolve()
     if must_exist or read_only:
         mode = "ro" if read_only else "rw"
         uri = resolved.as_uri() + f"?mode={mode}"
-        connection = sqlite3.connect(uri, uri=True, isolation_level=None)
+        connection = sqlite3.connect(uri, uri=True, isolation_level=None,
+                                     check_same_thread=check_same_thread)
     else:
-        connection = sqlite3.connect(resolved, isolation_level=None)
+        connection = sqlite3.connect(resolved, isolation_level=None,
+                                     check_same_thread=check_same_thread)
     connection.execute("PRAGMA foreign_keys = ON")
     if connection.execute("PRAGMA foreign_keys").fetchone() != (1,):
         connection.close()
@@ -37,6 +42,11 @@ def initialize_database(path: Path) -> dict[str, int]:
             connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
             connection.executescript(
                 SCHEMA_PATH.with_name("audit_clips.sql").read_text(encoding="utf-8"))
+            # Clip tables created before clip review lack this column; SQLite has no ADD COLUMN IF NOT EXISTS.
+            if "review_status" not in {row[1] for row in connection.execute("PRAGMA table_info(Clip)")}:
+                connection.execute(
+                    "ALTER TABLE Clip ADD COLUMN review_status TEXT NOT NULL DEFAULT 'UNREVIEWED'"
+                    " CHECK (review_status IN ('UNREVIEWED', 'ACCEPTED', 'EDITED', 'DEFERRED'))")
         except sqlite3.Error:
             connection.rollback()
             raise
@@ -45,12 +55,13 @@ def initialize_database(path: Path) -> dict[str, int]:
         connection.close()
 
 
-def assert_schema(connection: sqlite3.Connection) -> None:
+def assert_schema(connection: sqlite3.Connection,
+                  tables: tuple[str, ...] = TABLES) -> None:
     present = {
         name for (name,) in connection.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table'")
     }
-    missing = [table for table in TABLES if table not in present]
+    missing = [table for table in tables if table not in present]
     if missing:
         raise DataError(
             "database is missing tables [" + ", ".join(missing) + "]; "
@@ -175,3 +186,13 @@ def table_counts(connection: sqlite3.Connection) -> dict[str, int]:
         cursor = connection.execute(f"SELECT COUNT(*) FROM {table}")
         counts[table] = cursor.fetchone()[0]
     return counts
+
+
+def review_table_counts(connection: sqlite3.Connection) -> dict[str, int]:
+    return {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in REVIEW_TABLES}
+
+
+def staff_table_counts(connection: sqlite3.Connection) -> dict[str, int]:
+    return {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in STAFF_TABLES + IMPORT_TABLES}

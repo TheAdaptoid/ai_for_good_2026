@@ -4,33 +4,40 @@ from datetime import datetime, timezone
 import math
 import sqlite3
 
+from analysis_db.clip_analytics import get_clip_info
+from analysis_db.contracts import DataError
 from analysis_db.storage import write_transaction
+
+
+def _apply(connection, table, record_id, columns, values, audit_columns, changed_by):
+    """Update one record and append its audit row inside the caller's transaction."""
+    key = table.lower() + "_id"
+    old = connection.execute(
+        f"SELECT {','.join(columns)} FROM {table} WHERE {key}=?",
+        (record_id,),
+    ).fetchone()
+    if old is None:
+        raise LookupError(f"{table} {record_id} does not exist")
+    if old == values:
+        return False
+    connection.execute(
+        f"UPDATE {table} SET {','.join(column + '=?' for column in columns)} WHERE {key}=?",
+        (*values, record_id),
+    )
+    pairs = tuple(value for pair in zip(old, values) for value in pair)
+    names = (key, *audit_columns, "changed_at", "changed_by")
+    connection.execute(
+        f"INSERT INTO {table}Audit ({','.join(names)}) VALUES ({','.join('?' for _ in names)})",
+        (record_id, *pairs, datetime.now(timezone.utc).isoformat(), changed_by),
+    )
+    return True
 
 
 def _correct(connection, table, record_id, columns, values, audit_columns, changed_by):
     if changed_by is not None and not isinstance(changed_by, str):
         raise ValueError("changed_by must be text or None")
-    key = table.lower() + "_id"
     with write_transaction(connection):
-        old = connection.execute(
-            f"SELECT {','.join(columns)} FROM {table} WHERE {key}=?",
-            (record_id,),
-        ).fetchone()
-        if old is None:
-            raise LookupError(f"{table} {record_id} does not exist")
-        if old == values:
-            return False
-        connection.execute(
-            f"UPDATE {table} SET {','.join(column + '=?' for column in columns)} WHERE {key}=?",
-            (*values, record_id),
-        )
-        pairs = tuple(value for pair in zip(old, values) for value in pair)
-        names = (key, *audit_columns, "changed_at", "changed_by")
-        connection.execute(
-            f"INSERT INTO {table}Audit ({','.join(names)}) VALUES ({','.join('?' for _ in names)})",
-            (record_id, *pairs, datetime.now(timezone.utc).isoformat(), changed_by),
-        )
-    return True
+        return _apply(connection, table, record_id, columns, values, audit_columns, changed_by)
 
 
 def correct_activity(connection: sqlite3.Connection, activity_id: int,
@@ -46,16 +53,95 @@ def correct_activity(connection: sqlite3.Connection, activity_id: int,
                     (new_label,), ("old_label", "new_label"), changed_by)
 
 
+ENGAGEMENT_COLUMNS = ("positive_score", "neutral_score", "negative_score")
+ENGAGEMENT_AUDIT = tuple(prefix + column for column in ENGAGEMENT_COLUMNS for prefix in ("old_", "new_"))
+
+
+def _check_scores(values):
+    for value in values:
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or not 0 <= value <= 1):
+            raise ValueError("Engagement scores must be finite numbers between 0 and 1")
+
+
 def correct_engagement(connection: sqlite3.Connection, engagement_id: int,
                        positive_score: float, neutral_score: float,
                        negative_score: float, *, changed_by: str | None = None) -> bool:
     """Update all current scores and append history atomically; False on no-op."""
     values = (positive_score, neutral_score, negative_score)
-    for value in values:
-        if (isinstance(value, bool) or not isinstance(value, (int, float))
-                or not math.isfinite(value) or not 0 <= value <= 1):
-            raise ValueError("Engagement scores must be finite numbers between 0 and 1")
-    columns = ("positive_score", "neutral_score", "negative_score")
-    audit_columns = tuple(prefix + column for column in columns for prefix in ("old_", "new_"))
-    return _correct(connection, "Engagement", engagement_id, columns,
-                    values, audit_columns, changed_by)
+    _check_scores(values)
+    return _correct(connection, "Engagement", engagement_id, ENGAGEMENT_COLUMNS,
+                    values, ENGAGEMENT_AUDIT, changed_by)
+
+
+CLIP_RESULT = {"ACCEPT": "ACCEPTED", "EDIT": "EDITED", "DEFER": "DEFERRED"}
+
+
+def review_clip(connection: sqlite3.Connection, clip_id: int, action: str, *, reviewer_id: str,
+                activity_label: str | None = None,
+                scores: tuple[float, float, float] | None = None,
+                create_activity_label: bool = False) -> str:
+    """Apply one staff review action to a stored clip and return its new review status.
+
+    EDIT relabels every activity window overlapping the clip and sets every clip member's
+    visible-affect scores inside the clip to ``scores``, through the audited corrections.
+    Windows straddling a boundary are shared with the neighbouring clip. With
+    ``create_activity_label`` a new active activity Label is added first. Status, label,
+    value changes, and the ClipReviewEvent row commit together.
+    """
+    if action not in CLIP_RESULT:
+        raise ValueError(f"Unknown clip review action {action!r}")
+    if action != "EDIT" and (activity_label is not None or scores is not None):
+        raise DataError("Only an edit changes activity or engagement values")
+    if create_activity_label:
+        if activity_label is None or not activity_label.strip():
+            raise DataError("A new activity label needs a name")
+        activity_label = activity_label.strip()
+    if action == "EDIT":
+        if activity_label is None and scores is None:
+            raise DataError("An edit must change the activity label or the engagement scores")
+        if scores is not None:
+            _check_scores(scores)
+    with write_transaction(connection):
+        clip = get_clip_info(connection, clip_id)
+        (previous,) = connection.execute(
+            "SELECT review_status FROM Clip WHERE clip_id=?", (clip_id,)).fetchone()
+        if action == "EDIT":
+            changed = False
+            if activity_label is not None:
+                if create_activity_label:
+                    if connection.execute("SELECT 1 FROM Label WHERE category='activity' AND name=? COLLATE NOCASE",
+                                          (activity_label,)).fetchone():
+                        raise DataError(f"Activity label {activity_label!r} already exists")
+                    connection.execute("INSERT INTO Label(name,category) VALUES(?,'activity')",
+                                       (activity_label,))
+                if connection.execute(
+                        "SELECT 1 FROM Label WHERE category='activity' AND is_active=1 AND name=?",
+                        (activity_label,)).fetchone() is None:
+                    raise DataError(f"{activity_label!r} is not an active activity label")
+                for (activity_id,) in connection.execute(
+                        "SELECT a.activity_id FROM Activity a JOIN Frame f ON f.frame_id=a.frame_id"
+                        " WHERE f.video_id=? AND a.window_start_seconds<? AND a.window_end_seconds>?",
+                        (clip.video_id, clip.end_time_seconds, clip.start_time_seconds)).fetchall():
+                    changed |= _apply(connection, "Activity", activity_id, ("activity_label",),
+                                      (activity_label,), ("old_label", "new_label"), reviewer_id)
+            if scores is not None:
+                for (engagement_id,) in connection.execute(
+                        "SELECT e.engagement_id FROM Engagement e"
+                        " JOIN FaceDetection d ON d.detection_id=e.detection_id"
+                        " JOIN Frame f ON f.frame_id=d.frame_id"
+                        " JOIN ClipPerson cp ON cp.person_id=d.person_id AND cp.clip_id=?"
+                        " WHERE f.video_id=? AND f.source_time_seconds>=? AND f.source_time_seconds<?",
+                        (clip_id, clip.video_id, clip.start_time_seconds,
+                         clip.end_time_seconds)).fetchall():
+                    changed |= _apply(connection, "Engagement", engagement_id, ENGAGEMENT_COLUMNS,
+                                      tuple(scores), ENGAGEMENT_AUDIT, reviewer_id)
+            if not changed:
+                raise DataError("The edit changes no stored value in this clip")
+        status = CLIP_RESULT[action]
+        connection.execute("UPDATE Clip SET review_status=? WHERE clip_id=?", (status, clip_id))
+        connection.execute(
+            "INSERT INTO ClipReviewEvent(clip_id,action,previous_status,resulting_status,"
+            "reviewer_id,created_at) VALUES(?,?,?,?,?,?)",
+            (clip_id, action, previous, status, reviewer_id, datetime.now(timezone.utc).isoformat()))
+    return status

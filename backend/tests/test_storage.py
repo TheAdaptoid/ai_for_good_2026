@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from analysis_db.contracts import DataError, TABLES, VideoMetadata
+from analysis_db.contracts import DataError, REVIEW_TABLES, TABLES, VideoMetadata
 from analysis_db.storage import (
     assert_schema,
     connect_database,
@@ -279,7 +279,7 @@ def test_schema_has_no_image_path_columns(tmp_path):
     initialize_database(tmp_path / "db2.sqlite")
     con = connect_database(tmp_path / "db2.sqlite")
     try:
-        for table in TABLES:
+        for table in TABLES + REVIEW_TABLES:
             columns = [row[1] for row in con.execute(f"PRAGMA table_info({table})")]
             assert columns
             for column in columns:

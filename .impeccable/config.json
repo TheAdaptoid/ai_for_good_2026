@@ -1,0 +1,80 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-25T04:57:09.308Z",
+        "reason": "User scoped this pass to shipping staff UI; this file is a non-shipping direction-decision sketch, absent from the frontend build. Preserve the sketch rather than polish it to satisfy the hook."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-25T04:57:09.359Z",
+        "reason": "User scoped this pass to shipping staff UI; this file is a non-shipping direction-decision sketch, absent from the frontend build. Preserve the sketch rather than polish it to satisfy the hook."
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-25T04:57:09.410Z",
+        "reason": "User scoped this pass to shipping staff UI; this file is a non-shipping direction-decision sketch, absent from the frontend build. Preserve the sketch rather than polish it to satisfy the hook."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-25T04:57:09.463Z",
+        "reason": "User scoped this pass to shipping staff UI; this file is a non-shipping direction-decision sketch, absent from the frontend build. Preserve the sketch rather than polish it to satisfy the hook."
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-25T04:57:09.515Z",
+        "reason": "User scoped this pass to shipping staff UI; this file is a non-shipping direction-decision sketch, absent from the frontend build. Preserve the sketch rather than polish it to satisfy the hook."
+      },
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-25T04:57:09.567Z",
+        "reason": "User scoped this pass to shipping staff UI; this file is a non-shipping direction-decision sketch, absent from the frontend build. Preserve the sketch rather than polish it to satisfy the hook."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-25T04:57:09.620Z",
+        "reason": "User scoped this pass to shipping staff UI; this file is a non-shipping direction-decision sketch, absent from the frontend build. Preserve the sketch rather than polish it to satisfy the hook."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-25T04:57:09.681Z",
+        "reason": "User scoped this pass to shipping staff UI; this file is a non-shipping direction-decision sketch, absent from the frontend build. Preserve the sketch rather than polish it to satisfy the hook."
+      }
+    ]
+  }
+}

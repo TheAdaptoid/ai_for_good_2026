@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS Clip (
     start_time_seconds REAL NOT NULL CHECK (start_time_seconds >= 0),
     end_time_seconds REAL NOT NULL,
     created_at TEXT NOT NULL,
+    review_status TEXT NOT NULL DEFAULT 'UNREVIEWED'
+        CHECK (review_status IN ('UNREVIEWED', 'ACCEPTED', 'EDITED', 'DEFERRED')),
     CHECK (end_time_seconds > start_time_seconds)
 );
 CREATE TABLE IF NOT EXISTS ClipPerson (
@@ -38,6 +40,16 @@ CREATE TABLE IF NOT EXISTS ClipGeneration (
         typeof(persistence_frames) = 'integer' AND persistence_frames > 0),
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ClipReviewEvent (
+    event_id INTEGER PRIMARY KEY,
+    clip_id INTEGER NOT NULL REFERENCES Clip(clip_id),
+    action TEXT NOT NULL CHECK (action IN ('ACCEPT', 'EDIT', 'DEFER')),
+    previous_status TEXT NOT NULL,
+    resulting_status TEXT NOT NULL,
+    reviewer_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_clip_review_event_clip ON ClipReviewEvent(clip_id, event_id);
 CREATE INDEX IF NOT EXISTS idx_activity_audit_activity ON ActivityAudit(activity_id, audit_id);
 CREATE INDEX IF NOT EXISTS idx_engagement_audit_engagement ON EngagementAudit(engagement_id, audit_id);
 CREATE INDEX IF NOT EXISTS idx_clip_video_time ON Clip(video_id, start_time_seconds, end_time_seconds);
@@ -75,8 +87,18 @@ BEGIN
     SELECT RAISE(ABORT, 'Video clips are finalized') WHERE EXISTS (
         SELECT 1 FROM ClipGeneration WHERE video_id = NEW.video_id);
 END;
-CREATE TRIGGER IF NOT EXISTS clip_no_update BEFORE UPDATE ON Clip
+-- Boundaries are immutable; only review_status may change.
+DROP TRIGGER IF EXISTS clip_no_update;
+CREATE TRIGGER IF NOT EXISTS clip_boundaries_no_update
+BEFORE UPDATE OF clip_id, video_id, start_time_seconds, end_time_seconds, created_at ON Clip
 BEGIN SELECT RAISE(ABORT, 'Clips are immutable'); END;
+CREATE TRIGGER IF NOT EXISTS clip_review_event_no_update BEFORE UPDATE ON ClipReviewEvent
+BEGIN SELECT RAISE(ABORT, 'ClipReviewEvent is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS clip_review_event_no_delete BEFORE DELETE ON ClipReviewEvent
+BEGIN SELECT RAISE(ABORT, 'ClipReviewEvent is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS clip_review_event_no_replace BEFORE INSERT ON ClipReviewEvent
+WHEN EXISTS (SELECT 1 FROM ClipReviewEvent WHERE event_id = NEW.event_id)
+BEGIN SELECT RAISE(ABORT, 'ClipReviewEvent is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS clip_no_delete BEFORE DELETE ON Clip
 BEGIN SELECT RAISE(ABORT, 'Clips are immutable'); END;
 CREATE TRIGGER IF NOT EXISTS clip_person_no_update BEFORE UPDATE ON ClipPerson

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#201C25;--ground:#F8F7F8;--paper:#fff;--rule:#E3DFE6;--mute:#5E5866;--mag:#C21866;--pur:#631DA8;--org:#F25E0D;--ok:#1E7A46}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--ground);color:var(--ink);font:15px/1.45 Archivo,sans-serif;font-variant-numeric:tabular-nums}
+.mast{height:56px;background:var(--ink);color:#fff;display:flex;align-items:center;gap:40px;padding:0 28px;border-bottom:4px solid var(--mag)}
+.mast b{font-stretch:125%;font-weight:800;letter-spacing:.06em;font-size:15px}
+.mast nav{display:flex;gap:24px;flex:1}.mast nav a{color:#CFC9D6;font-stretch:85%;font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:13px}
+.mast nav a.on{color:#fff;box-shadow:inset 0 -2px 0 #fff;padding-bottom:4px}
+.mast span{font-size:13px;color:#CFC9D6}
+.cover{padding:18px 28px 12px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--rule)}
+.kicker{font-stretch:85%;font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:var(--mag)}
+h1{font-stretch:75%;font-weight:800;font-size:34px;line-height:1.05;text-transform:uppercase;letter-spacing:.01em}
+.meta{font-size:14px;color:var(--mute)}
+.btn{font:600 14px Archivo;padding:8px 14px;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:3px}
+.main{display:grid;grid-template-columns:1fr 380px;gap:0;height:calc(900px - 56px - 86px)}
+.left{padding:16px 20px 16px 28px;border-right:1px solid var(--rule)}
+.player{height:300px;background:#141118;border-radius:3px;display:grid;place-items:center;color:#8C8496;font-size:13px}
+.tl{margin-top:14px;background:var(--paper);border:1px solid var(--rule);border-radius:3px}
+.row{display:grid;grid-template-columns:230px 1fr;border-bottom:1px solid var(--rule);height:31px}
+.lab{display:flex;align-items:center;gap:6px;padding:0 10px;font-size:14px;white-space:nowrap;overflow:hidden}
+.lab .dots{flex:1;border-bottom:1.5px dotted #B9B2C0;transform:translateY(4px)}
+.lab .t{font-size:13px}
+.sec{font-stretch:85%;font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--mute)}
+.track{position:relative}
+.bar{position:absolute;top:8px;height:15px;border-radius:2px}
+.pres{background:#DCD6E2}
+.act{background:var(--pur);top:5px;height:21px;color:#fff;font-size:11px;padding:2px 5px}
+.obs{background:var(--mag);top:5px;height:21px;color:#fff;font-size:11px;padding:2px 5px}
+.sug{background:#fff;border:2px dashed var(--org);color:var(--ink);top:5px;height:21px;font-size:11px;padding:1px 5px}
+.clip{top:4px;height:23px;border:1.5px solid var(--ink);font-size:11px;padding:2px 5px;font-weight:700}
+.dim{opacity:.35}
+.focus{background:#FBF2F6}
+.ph{position:absolute;top:0;bottom:0;left:41%;width:2px;background:var(--mag)}
+.panel{padding:18px 22px;background:var(--paper)}
+.panel h2{font-stretch:75%;font-weight:800;font-size:24px;text-transform:uppercase}
+.badges{display:flex;gap:6px;margin:8px 0 14px}.badge{font-size:12px;font-weight:700;padding:2px 8px;border-radius:2px;border:1.5px solid}
+.b-ai{border-color:var(--org);color:#9A3A05}.b-src{border-color:var(--ink)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:14px;margin-bottom:14px}dt{color:var(--mute)}dd{text-align:right;font-weight:600}
+.acts{display:flex;gap:8px;margin-top:10px}.acts .gap{flex:1}
+.o{background:#fff;color:var(--ink)}.r{background:#fff;color:#A3122A;border-color:#A3122A}
+textarea{width:100%;height:56px;border:1px solid var(--rule);border-radius:3px;font:14px Archivo;padding:8px}
+.hist{margin-top:16px;border-top:1px solid var(--rule);padding-top:12px;font-size:13px}
+</style></head><body>
+<header class="mast"><b>THE PERFORMANCE ACADEMY · VIDEO REVIEW</b><nav><a href="#">Dashboard</a><a class="on" href="#">Videos</a><a href="#">Participants</a></nav><span>demo · Sign out</span></header>
+<section class="cover"><div><p class="kicker">This Is Me · Final Video 2025</p><h1>THIS IS ME 2025 — Final Video</h1><p class="meta">15:24 running time · 43 anonymous participants · 119 review clips · 136 awaiting review</p></div><button class="btn">Add annotation</button></section>
+<div class="main"><div class="left">
+<div class="player">video player</div>
+<div class="tl">
+ <div class="row"><div class="lab sec">Running time</div><div class="track"><span class="meta" style="position:absolute;top:6px;left:0">0:00</span><span class="meta" style="position:absolute;top:6px;left:24%">3:45</span><span class="meta" style="position:absolute;top:6px;left:49%">7:30</span><span class="meta" style="position:absolute;top:6px;left:74%">11:15</span><div class="ph"></div></div></div>
+ <div class="row"><div class="lab sec">Scenes · review clips</div><div class="track"><span class="bar clip" style="left:3%;width:7%">1.09</span><span class="bar clip" style="left:22%;width:5%">0.61</span><span class="bar clip" style="left:38%;width:9%">0.88</span><span class="bar clip" style="left:63%;width:6%">0.42</span></div></div>
+ <div class="row"><div class="lab sec">Whole scene</div><div class="track"><span class="bar sug" style="left:3%;width:7%">Spoken Perf.</span><span class="bar act" style="left:38%;width:9%">Rehearsal</span></div></div>
+ <div class="row focus"><div class="lab">Person_0001<span class="dots"></span><span class="t">0:36–14:58</span></div><div class="track"><span class="bar pres" style="left:4%;width:30%"></span><span class="bar pres" style="left:40%;width:50%"></span><span class="bar sug" style="left:38%;width:9%">Visible Positive Affect</span></div></div>
+ <div class="row dim"><div class="lab">Person_0008<span class="dots"></span><span class="t">0:06–9:12</span></div><div class="track"><span class="bar pres" style="left:1%;width:58%"></span><span class="bar obs" style="left:22%;width:5%">Neutral</span></div></div>
+ <div class="row dim"><div class="lab">Person_0033<span class="dots"></span><span class="t">1:52–6:40</span></div><div class="track"><span class="bar pres" style="left:12%;width:31%"></span></div></div>
+ <div class="row dim"><div class="lab">Person_0045<span class="dots"></span><span class="t">3:10–12:01</span></div><div class="track"><span class="bar pres" style="left:20%;width:58%"></span><span class="bar sug" style="left:63%;width:6%">Negative</span></div></div>
+ <div class="row dim"><div class="lab">Person_0074<span class="dots"></span><span class="t">5:44–5:58</span></div><div class="track"><span class="bar pres" style="left:37%;width:2%"></span></div></div>
+</div></div>
+<aside class="panel"><p class="kicker">Annotation · observation</p><h2>Visible Positive Affect</h2>
+<div class="badges"><span class="badge b-ai">AWAITING REVIEW</span><span class="badge b-src">Source: AI</span></div>
+<dl><dt>Participant</dt><dd>Person_0001</dd><dt>Time</dt><dd>5:51 – 7:14</dd><dt>Model confidence</dt><dd>0.64</dd><dt>Review clip</dt><dd>Scene 3 · priority 0.88</dd></dl>
+<textarea placeholder="Note (optional)"></textarea>
+<div class="acts"><button class="btn">Accept</button><button class="btn o">Edit…</button><button class="btn o">Defer</button><span class="gap"></span><button class="btn r">Reject</button></div>
+<div class="hist"><p class="sec">History</p><p class="meta" style="margin-top:6px">No review actions yet.</p></div></aside></div>
+</body></html>
