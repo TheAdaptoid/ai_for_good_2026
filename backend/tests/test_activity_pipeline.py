@@ -195,3 +195,24 @@ def test_expanded_prompts_and_cutoff_are_used_and_invalidate_resume(video, fake_
     monkeypatch.setattr(runner, "ACTIVITY_DESCRIPTIONS", revised)
     third = runner.run_activity(video.db_path, sample_size=None, device="cpu")
     assert third.skipped == 0 and third.written == 4
+
+
+def test_automated_rerun_preserves_activity_ids_and_audit_history(video, fake_forward, monkeypatch):
+    from analysis_db.corrections import correct_activity
+    from analysis_db.storage import connect_database
+    runner = fake_forward
+    runner.run_activity(video.db_path, sample_size=None, device="cpu")
+    c = connect_database(video.db_path)
+    try:
+        assert c.execute("SELECT COUNT(*) FROM ActivityAudit").fetchone() == (0,)
+        activity_id = c.execute("SELECT MIN(activity_id) FROM Activity").fetchone()[0]
+        correct_activity(c, activity_id, "manual correction")
+        history = c.execute("SELECT * FROM ActivityAudit").fetchall()
+        ids = c.execute("SELECT activity_id,frame_id FROM Activity ORDER BY activity_id").fetchall()
+        monkeypatch.setattr(runner, "ACTIVITIES", ("Walking", "Dancing"))
+        rerun = runner.run_activity(video.db_path, sample_size=None, device="cpu")
+        assert rerun.written == 4
+        assert c.execute("SELECT activity_id,frame_id FROM Activity ORDER BY activity_id").fetchall() == ids
+        assert c.execute("SELECT * FROM ActivityAudit").fetchall() == history
+    finally:
+        c.close()

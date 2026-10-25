@@ -121,3 +121,32 @@ def make_row():
     base = DetectionRow(2, "Clip", "clip.mp4", 0, "frame-0", "person-1",
                         0.0, 1.0, 2.0, 10.0, 20.0, 0.9)
     return lambda **changes: replace(base, **changes)
+
+
+@pytest.fixture
+def person_timeline(tmp_path):
+    """Stored analyzed frames, including empty frames and sparse source indices."""
+    from analysis_db.storage import connect_database
+    connections = []
+
+    def make(people, *, times=None, duration=None):
+        path = tmp_path / f"timeline-{len(connections)}.sqlite"
+        initialize_database(path)
+        c = connect_database(path)
+        connections.append(c)
+        times = list(range(len(people))) if times is None else times
+        duration = max(1, len(people)) if duration is None else duration
+        c.execute("INSERT INTO Video(video_id,title,filename,file_path,duration_seconds)"
+                  " VALUES(1,'timeline','timeline.mp4','timeline.mp4',?)", (duration,))
+        for person in sorted(set().union(*people)):
+            c.execute("INSERT INTO Person VALUES(?)", (person,))
+        for index, (present, time) in enumerate(zip(people, times)):
+            c.execute("INSERT INTO Frame VALUES(?,1,?,?)", (f"f{index}", index * 24, time))
+            for person in sorted(present):
+                c.execute("INSERT INTO FaceDetection(person_id,frame_id,x1,y1,x2,y2,det_score)"
+                          " VALUES(?,?,0,0,10,10,0.9)", (person, f"f{index}"))
+        return c
+
+    yield make
+    for c in connections:
+        c.close()

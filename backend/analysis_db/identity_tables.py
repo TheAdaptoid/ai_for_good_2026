@@ -91,8 +91,13 @@ def replace_identity_tables(connection: sqlite3.Connection,
     persons = table("PERSON", lambda values: (_text(values, "person_id"),))
     detections = table("FACE_DETECTION", detection)
 
-    connection.execute("BEGIN")
+    connection.execute("BEGIN IMMEDIATE")
     try:
+        present = {row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+        for protected in ("ActivityAudit", "EngagementAudit", "ClipGeneration", "Clip"):
+            if protected in present and connection.execute(f"SELECT 1 FROM {protected} LIMIT 1").fetchone():
+                raise DataError("identity replacement cannot discard audit history or finalized clips")
         for table in CLEARED_TABLES:
             connection.execute(f"DELETE FROM {table}")
         connection.executemany("INSERT INTO Person (person_id) VALUES (?)", persons)

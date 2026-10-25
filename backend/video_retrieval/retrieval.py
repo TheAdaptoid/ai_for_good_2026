@@ -8,8 +8,10 @@ import av
 import numpy as np
 
 from analysis_db.paths import DEFAULT_DB, REPOSITORY_ROOT
+from analysis_db.clip_analytics import get_clip_info, get_clip_summary
+from analysis_db.contracts import ClipInfo
 from analysis_db.storage import connect_database
-from .contracts import DetectionInfo, TemporalClip
+from .contracts import DetectionInfo, TemporalClip, VideoSegment
 
 
 class _TemporalValidationError(ValueError):
@@ -85,6 +87,66 @@ class VideoRetriever:
             interval_seconds, sample_count,
         )
 
+    def get_person_clip_info(self, clip_id: int) -> ClipInfo:
+        with closing(connect_database(self.db_path, read_only=True)) as connection:
+            return get_clip_info(connection, clip_id)
+
+    def get_person_clip_summary(self, clip_id: int, *, include_details: bool = False) -> dict:
+        with closing(connect_database(self.db_path, read_only=True)) as connection:
+            return get_clip_summary(connection, clip_id, include_details=include_details)
+
+    def get_person_clip(self, clip_id: int) -> VideoSegment:
+        """Retrieve a persisted person clip, distinct from detection get_clip()."""
+        info = self.get_person_clip_info(clip_id)
+        return self.get_segment(info.video_id, info.start_time_seconds, info.end_time_seconds)
+
+    def get_segment(self, video_id: int, start_time_seconds: float,
+                    end_time_seconds: float) -> VideoSegment:
+        """Return all original RGB frames with normalized PTS in [start, end).
+
+        Like existing retrieval, results remain in memory and retain original
+        dimensions. There is no resampling, edge padding, or file export.
+        """
+        try:
+            valid = all(not isinstance(value, bool) and math.isfinite(value)
+                        for value in (start_time_seconds, end_time_seconds))
+        except TypeError:
+            valid = False
+        if not valid or not 0 <= start_time_seconds < end_time_seconds:
+            raise ValueError("Segment boundaries must be finite with 0 <= start < end")
+        with closing(connect_database(self.db_path, read_only=True)) as connection:
+            row = connection.execute(
+                "SELECT duration_seconds FROM Video WHERE video_id=?", (video_id,)).fetchone()
+        if row is None:
+            raise LookupError(f"Video {video_id} does not exist")
+        duration = row[0]
+        if duration is None or not math.isfinite(duration) or not 0 < duration:
+            raise ValueError(f"Video {video_id} requires a finite positive duration")
+        if end_time_seconds > duration:
+            raise ValueError("Segment boundaries must remain within video duration")
+        path = self._video_path(video_id)
+        # Clip/Frame timestamps are SQLite REALs. Compare at that same precision
+        # so a decoded 83/1000 PTS equals its stored Python float 0.083.
+        start, end = float(start_time_seconds), float(end_time_seconds)
+        images, indices, times = [], [], []
+        try:
+            with av.open(str(path)) as video:
+                for index, time, frame in self._presentation_frames(video, path):
+                    time = float(time)
+                    # Validate the full PTS stream like temporal retrieval;
+                    # a corrupt later timestamp must not silently hide frames.
+                    if start <= time < end:
+                        images.append(frame.to_ndarray(format="rgb24"))
+                        indices.append(index)
+                        times.append(float(time))
+        except _TemporalValidationError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(f"Failed to decode video {path} segment {float(start)}..{float(end)}: {exc}") from exc
+        if not images:
+            raise ValueError(f"Video {video_id} has no frames in the requested segment")
+        return VideoSegment(np.stack(images), tuple(indices), tuple(times), float(start), float(end))
+
     def _video_path(self, video_id: int) -> Path:
         with closing(connect_database(self.db_path, read_only=True)) as connection:
             row = connection.execute(
@@ -144,6 +206,26 @@ class VideoRetriever:
         if filled < count:
             output[filled:] = output[filled - 1]
         return output
+
+    @staticmethod
+    def _presentation_frames(video, path):
+        """Yield zero-based indices and strictly increasing PTS from origin zero."""
+        origin = previous = None
+        for index, frame in enumerate(video.decode(video=0)):
+            if frame.pts is None or frame.time_base is None or frame.time_base <= 0:
+                raise _TemporalValidationError(
+                    f"Frame {index} in {path} has invalid timestamps:"
+                    f" pts {frame.pts!r}, time base {frame.time_base}")
+            absolute = Fraction(frame.pts) * frame.time_base
+            if origin is None:
+                origin = absolute
+            time = absolute - origin
+            if previous is not None and time <= previous:
+                raise _TemporalValidationError(
+                    f"Video {path} has nonincreasing timestamps at"
+                    f" frame {index}: {float(time)} after {float(previous)}")
+            previous = time
+            yield index, time, frame
 
     @staticmethod
     def _sample_count(sample_count: object) -> int:
@@ -216,7 +298,6 @@ class VideoRetriever:
         slot_indices: list[int] = []
         slot_times: list[Fraction] = []
         decoded_frames = 0
-        origin = None
         reference_time = None
         final = None
 
@@ -232,25 +313,7 @@ class VideoRetriever:
 
         try:
             with av.open(str(path)) as video:
-                for index, frame in enumerate(video.decode(video=0)):
-                    if (frame.pts is None or frame.time_base is None
-                            or frame.time_base <= 0):
-                        raise _TemporalValidationError(
-                            f"Frame {index} in {path} has invalid timestamps:"
-                            f" pts {frame.pts!r}, time base {frame.time_base}"
-                        )
-                    time = Fraction(frame.pts) * frame.time_base
-                    if decoded_frames == 0:
-                        origin = time
-                        time = Fraction(0)
-                    else:
-                        time -= origin
-                        if time <= previous[1]:
-                            raise _TemporalValidationError(
-                                f"Video {path} has nonincreasing timestamps at"
-                                f" frame {index}: {float(time)} after"
-                                f" {float(previous[1])}"
-                            )
+                for index, time, frame in self._presentation_frames(video, path):
                     current = (frame, time, index)
                     while pending < count and targets[pending] <= time:
                         target = targets[pending]
