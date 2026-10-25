@@ -52,14 +52,29 @@ def save_activity(connection, job, sampling, result, *, config_json, config_hash
     for prediction in result.predictions:
         if not prediction.label.strip() or not 0 <= prediction.score <= 1:
             raise ValueError("Activity labels and scores are invalid")
-    result_json = canonical_json(asdict(result))
     payload = dict(sampling, retrieval_time_seconds=retrieval_time_seconds)
     sampling_json = canonical_json(payload)
-    if config_fingerprint(json.loads(config_json)) != config_hash:
+    config = json.loads(config_json)
+    if config_fingerprint(config) != config_hash:
         raise ValueError("Configuration hash does not match stored configuration")
     top = result.predictions[0]
+    policy = config.get("decision_policy", {})
+    threshold = policy.get("min_score_exclusive")
+    fallback = policy.get("uncertain_label")
+    if (isinstance(threshold, bool) or not isinstance(threshold, (int, float))
+            or not math.isfinite(threshold) or not 0 <= threshold <= 1):
+        raise ValueError("Decision policy requires a finite minimum score between 0 and 1")
+    if not isinstance(fallback, str) or not fallback.strip():
+        raise ValueError("Decision policy requires an uncertainty label")
+    uncertain = top.score <= threshold
+    label = fallback if uncertain else top.label
+    result_payload = asdict(result)
+    result_payload["decision"] = {
+        "label":label,"uncertain":uncertain,"min_score_exclusive":threshold,
+    }
+    result_json = canonical_json(result_payload)
     values = (job.frame_id, sampling["requested_start_seconds"], sampling["requested_end_seconds"],
-              32, top.label, top.score, result_json, sampling_json, config_json, config_hash, input_hash)
+              32, label, top.score, result_json, sampling_json, config_json, config_hash, input_hash)
     columns = ("frame_id", "window_start_seconds", "window_end_seconds", "sample_count",
                "activity_label", "score", "result_json", "sampling_json", "config_json", "config_hash", "input_hash")
     connection.execute("BEGIN IMMEDIATE")

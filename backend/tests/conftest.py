@@ -167,3 +167,32 @@ def pre_review_schema_sql():
     """The six-table schema as it was before Spec 001: everything before the review section."""
     text = storage.SCHEMA_PATH.read_text(encoding="utf-8")
     return text.split("-- Review model", 1)[0] + "COMMIT;\n"
+
+
+@pytest.fixture
+def person_timeline(tmp_path):
+    """Stored analyzed frames, including empty frames and sparse source indices."""
+    from analysis_db.storage import connect_database
+    connections = []
+
+    def make(people, *, times=None, duration=None):
+        path = tmp_path / f"timeline-{len(connections)}.sqlite"
+        initialize_database(path)
+        c = connect_database(path)
+        connections.append(c)
+        times = list(range(len(people))) if times is None else times
+        duration = max(1, len(people)) if duration is None else duration
+        c.execute("INSERT INTO Video(video_id,title,filename,file_path,duration_seconds)"
+                  " VALUES(1,'timeline','timeline.mp4','timeline.mp4',?)", (duration,))
+        for person in sorted(set().union(*people)):
+            c.execute("INSERT INTO Person VALUES(?)", (person,))
+        for index, (present, time) in enumerate(zip(people, times)):
+            c.execute("INSERT INTO Frame VALUES(?,1,?,?)", (f"f{index}", index * 24, time))
+            for person in sorted(present):
+                c.execute("INSERT INTO FaceDetection(person_id,frame_id,x1,y1,x2,y2,det_score)"
+                          " VALUES(?,?,0,0,10,10,0.9)", (person, f"f{index}"))
+        return c
+
+    yield make
+    for c in connections:
+        c.close()

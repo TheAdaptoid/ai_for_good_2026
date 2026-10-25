@@ -29,3 +29,12 @@ class TemporalClip:
     @property
     def unique_frame_count(self) -> int:
         return len(set(self.source_frame_indices))
+
+
+@dataclass(frozen=True)
+class VideoSegment:
+    frames: np.ndarray
+    source_frame_indices: tuple[int, ...]
+    source_timestamps_seconds: tuple[float, ...]
+    requested_start_seconds: float
+    requested_end_seconds: float

@@ -120,3 +120,32 @@ def test_replace_engagement_on_six_table_database(tmp_path):
     source = write(tmp_path / "results.csv", [0, 4, "Person_0001", 0.7, 0.1, 0.2, "Positive"])
     assert run(path, source)["inserted"] == 1
     assert engagement(path) == [(4, 0.7, 0.2, 0.1)]
+
+
+def test_reimport_preserves_audited_record_ids_and_history(tmp_path, db):
+    from analysis_db.corrections import correct_engagement
+    con = connect_database(db)
+    try:
+        correct_engagement(con, 1, 0.6, 0.3, 0.1)
+        history = con.execute("SELECT * FROM EngagementAudit").fetchall()
+        source = write(tmp_path / "results.csv", [0, 4, "Person_0001", 0.7, 0.1, 0.2, "Positive"])
+        replace_engagement(con, source)
+        assert con.execute("SELECT engagement_id,positive_score FROM Engagement").fetchall() == [(1, 0.7)]
+        assert con.execute("SELECT * FROM EngagementAudit").fetchall() == history
+    finally:
+        con.close()
+
+
+def test_import_cannot_remove_audited_records(tmp_path, db):
+    from analysis_db.corrections import correct_engagement
+    con = connect_database(db)
+    try:
+        correct_engagement(con, 1, 0.6, 0.3, 0.1)
+        before = con.execute("SELECT * FROM Engagement").fetchall()
+        source = write(tmp_path / "results.csv", [0, 8, "Person_0001", 0.7, 0.1, 0.2, "Positive"])
+        with pytest.raises(sqlite3.IntegrityError):
+            replace_engagement(con, source)
+        assert con.execute("SELECT * FROM Engagement").fetchall() == before
+        assert con.execute("SELECT COUNT(*) FROM EngagementAudit").fetchone() == (1,)
+    finally:
+        con.close()

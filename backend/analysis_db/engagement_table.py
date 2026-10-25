@@ -43,12 +43,19 @@ def replace_engagement(connection: sqlite3.Connection, source: Path, *,
     if duplicates:
         raise DataError(f"{source}: {duplicates} duplicate detection_id value(s)")
 
-    connection.execute("BEGIN")
+    connection.execute("BEGIN IMMEDIATE")
     try:
-        connection.execute("DELETE FROM Engagement")
+        incoming = {row[0] for row in rows}
+        removed = [(engagement_id,) for engagement_id, detection_id in connection.execute(
+            "SELECT engagement_id,detection_id FROM Engagement") if detection_id not in incoming]
+        # Retain IDs so existing audit references keep identifying the same row.
+        # Removing an audited row fails through its FK and rolls back the import.
+        connection.executemany("DELETE FROM Engagement WHERE engagement_id=?", removed)
         connection.executemany(
             "INSERT INTO Engagement (detection_id, positive_score, neutral_score, negative_score)"
-            " VALUES (?, ?, ?, ?)", rows)
+            " VALUES (?, ?, ?, ?) ON CONFLICT(detection_id) DO UPDATE SET"
+            " positive_score=excluded.positive_score,neutral_score=excluded.neutral_score,"
+            " negative_score=excluded.negative_score", rows)
         if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise DataError("foreign key validation failed")
         if connection.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:

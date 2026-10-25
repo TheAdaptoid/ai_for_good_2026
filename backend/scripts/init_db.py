@@ -14,8 +14,8 @@ from analysis_db.storage import (  # noqa: E402
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Create the analysis database, or migrate an existing one by adding the"
-                    " review tables. Idempotent; existing rows are never changed.")
+        description="Create the analysis database and add review, audit, and clip tables."
+                    " Initialization is idempotent and preserves existing data.")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB,
                         help="database file to initialize (default: %(default)s)")
     return parser

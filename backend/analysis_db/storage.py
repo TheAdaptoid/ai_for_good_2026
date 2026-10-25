@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 from analysis_db.contracts import (
@@ -39,6 +40,8 @@ def initialize_database(path: Path) -> dict[str, int]:
     try:
         try:
             connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+            connection.executescript(
+                SCHEMA_PATH.with_name("audit_clips.sql").read_text(encoding="utf-8"))
         except sqlite3.Error:
             connection.rollback()
             raise
@@ -58,6 +61,22 @@ def assert_schema(connection: sqlite3.Connection,
         raise DataError(
             "database is missing tables [" + ", ".join(missing) + "]; "
             "call initialize_database() before ingesting")
+
+
+@contextmanager
+def write_transaction(connection: sqlite3.Connection):
+    """Own a serialized write transaction; never commit a caller's work."""
+    if connection.in_transaction:
+        raise DataError("operation requires an idle database connection")
+    if connection.execute("PRAGMA foreign_keys").fetchone() != (1,):
+        raise DataError("operation requires foreign keys enabled")
+    connection.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+        connection.commit()
+    except BaseException:
+        connection.rollback()
+        raise
 
 
 def ensure_video(connection: sqlite3.Connection, row: DetectionRow, file_path: str,

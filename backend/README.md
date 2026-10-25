@@ -1,9 +1,10 @@
 # backend
 
 Local SQLite ingestion, video retrieval, and activity classification for the
-THIS IS ME face-detection CSV. Ingestion builds a six-table analysis database
-(schema in `db/schema.sql`). The `video_retrieval` package reads original video
-frames, face crops, 32-frame clips, and variable-rate temporal samples into
+THIS IS ME face-detection CSV. Ingestion builds a six-table core analysis database
+(schema in `db/schema.sql`), with audit history and person clips added by
+`db/audit_clips.sql`. The `video_retrieval` package reads original video
+frames, face crops, 32-frame clips, person-based segments, and variable-rate temporal samples into
 memory. The `activity_classification` package additionally runs zero-shot X-CLIP
 inference locally on those RGB frames. The activity runner saves frame-linked
 predictions after an explicit schema migration. Retrieval uses PyAV and NumPy; ingestion uses the standard
@@ -245,6 +246,29 @@ The runner builds a timestamp-only index once per selected video, seeks to each
 window, and reports any sequential-decode fallback. This preserves exact source
 indices and padding, without decoding the whole original for each request.
 
+### Activity labels and automatic uncertainty
+
+`activity_pipeline/config.py` defines 11 known activities, including Acting and
+Speaking, and a complete description for each. The runner uses these descriptions
+directly as model prompts. It does not score an Unknown or Uncertain candidate.
+
+Each saved result applies this rule automatically:
+
+```python
+activity_label = top.label if top.score > MIN_ACTIVITY_SCORE else UNCERTAIN_LABEL
+```
+
+The defaults are `MIN_ACTIVITY_SCORE = 0.65` and
+`UNCERTAIN_LABEL = "Uncertain result"`. Exactly 0.65 also produces the uncertainty
+label. No manual decision is required. `Activity.score` remains the highest known
+class score. `result_json` retains all ranked predictions and adds a `decision`
+object containing the stored label, uncertainty flag, and threshold.
+
+The cutoff uses candidate-relative softmax scores, not calibrated certainty.
+Changing labels, descriptions, or the decision policy changes the configuration
+hash and schedules old results for recomputation when inference resumes. Code
+updates alone do not recalculate previously stored predictions.
+
 FP32 and batch size 2 are the runner defaults, based on GTX 1650 measurements.
 The older single-clip classifier retains its device-based default when precision
 is omitted; pass `precision="fp32"` to override it. One CPU worker prepares batches
@@ -279,8 +303,11 @@ seconds, and writes 28.09 seconds. These phases overlap. Peak allocated GPU memo
 was 1,381.8 MiB. Retrieval is the current bottleneck. The sample covered videos
 1-6; videos 7-12 were not sampled. These figures estimate runtime, not accuracy.
 The repeat run skipped all 100 without model loading or decoding.
+This timing run used the earlier nine generic prompts. The current 11 expanded
+prompts and automatic uncertainty policy were added after that benchmark.
 
-Activity stores the top label/score, full ranked results, actual sampling metadata,
+Activity stores the automatic decision label and highest known-class score,
+full ranked results, actual sampling metadata,
 configuration, and resume hashes. A successful changed configuration replaces the
 frame's current result. Scores are candidate-relative, not calibrated probabilities.
 Detections share the activity of their center frame, not every activity window
@@ -300,6 +327,31 @@ ORDER BY f.video_id, f.frame_number, d.detection_id;
 Engagement contains single-frame facial-expression scores, not established
 measurements of engagement, mood, or satisfaction.
 
+### Publish repeated 500-instance checkpoints
+
+`scripts/run_activity_checkpoints.py` runs from an isolated worktree. Its input
+and output is the tracked `data/analysis.sqlite` in that worktree. Seed it from
+the migrated local database before starting. The main checkout must be on `main`.
+
+```bash
+uv run --locked python scripts/run_activity_checkpoints.py --main-root "$MAIN_CHECKOUT" --chunk-size 500 --device cuda
+```
+
+Each chunk processes up to 500 pending centers with FP32, GPU batch size 2, and
+the current prompts/uncertainty rule. The process retains the loaded model and
+timestamp indexes between chunks. It verifies integrity, foreign keys, and exact
+preservation of the five non-Activity tables before committing only the SQLite
+file. It integrates concurrent main/remote commits in the inference worktree,
+fast-forwards local main, and pushes main after each checkpoint. Unrelated staged
+work in the main checkout is preserved.
+
+Reports and progress logs belong under ignored `backend/results/checkpoints/`.
+The final shorter chunk is also published. Ctrl-C or SIGTERM stops processing and
+saves a partial report; completed rows remain in the worktree even if the partial
+chunk has not been published. A validation/Git error stops the loop without a
+force-push. GitHub checkpoints must stay below its 100 MiB per-file limit. Inference
+code changes merged during the run require a restart before the next chunk.
+
 ## Database
 
 Six tables: `Video` (one row per probed video file), `Frame`, `Person`,
@@ -308,12 +360,108 @@ frame), and `Engagement` (facial-expression scores per detection). The supplied
 database has engagement results. The activity runner writes only Activity.
 
 Five review tables sit alongside them (see [Review model](#review-model)).
+Review-table initialization also adds missing starter labels with `INSERT OR IGNORE`, preserving existing rows.
 
-`scripts/init_db.py` creates the schema idempotently from `db/schema.sql`
-(`CREATE … IF NOT EXISTS`, `INSERT OR IGNORE`). Review-table initialization adds missing tables, indexes,
-triggers, and the starter labels in one transaction and never alters existing rows.
-Existing Activity layouts require the explicit migration described above before activity inference.
-Foreign keys are enforced on every connection.
+`scripts/init_db.py` creates the core schema from `db/schema.sql` and installs
+the additive audit/clip extension from `db/audit_clips.sql`. Run it on an existing
+database to add those tables, indexes, and triggers without rebuilding or removing
+data. Each SQL script is transactional and idempotent. It does not convert legacy
+Activity columns; use `scripts/migrate_activity.py` for that earlier migration.
+Foreign keys are enforced on every connection. Existing ingestion results and
+`table_counts()` continue to report the six core tables.
+
+### Audited corrections and person clips
+
+After all frame/detection imports and identity replacement are complete, finalize
+person clips once. Activity and engagement predictions can be loaded before or
+after finalization:
+
+```bash
+uv run python scripts/init_db.py --db ../data/analysis.local.sqlite
+uv run python scripts/populate_clips.py --db ../data/analysis.local.sqlite
+# Optional: finalize just one video, with a different persistence threshold.
+uv run python scripts/populate_clips.py --db ../data/analysis.local.sqlite --video-id 3 --persistence-frames 5
+```
+
+The default threshold is five consecutive **stored analyzed frames** per person.
+Confirmed arrivals/departures are backdated to the start of their qualifying run.
+Short detection gaps do not split clips. Empty Frame records count as absences;
+unstored source frames do not count as observations. Only nonempty confirmed
+person sets produce clips. The first confirmed appearance starts at its first
+qualifying frame; remaining confirmed presence extends to the video duration.
+Trailing changes with too few observations are ignored.
+
+Finalization is atomic per video and resumable across videos. It records videos
+that produce zero clips too. Repeating the command returns the same clips,
+including when the requested threshold changes. Boundaries, parent videos, and
+memberships are immutable. Finish detection population before finalization;
+later detection imports do not regenerate clips. Videos require finite positive
+durations and increasing in-range frame timestamps.
+
+Use explicit correction functions for user edits:
+
+```python
+from contextlib import closing
+from pathlib import Path
+from analysis_db.storage import connect_database
+from analysis_db.corrections import correct_activity, correct_engagement
+
+with closing(connect_database(Path("../data/analysis.local.sqlite"), must_exist=True)) as c:
+    changed = correct_activity(c, activity_id=1, new_label="discussion")
+    changed = correct_engagement(c, engagement_id=1,
+                                positive_score=0.62, neutral_score=0.30,
+                                negative_score=0.08, changed_by=None)
+```
+
+These methods require an idle connection with foreign keys enabled. Each returns
+`True` on a correction or `False` on an exact no-op. Missing records raise
+`LookupError`; invalid values raise `ValueError`. Scores must be finite and in
+0–1, matching the existing schema; their sum need not equal one. Each correction
+updates the current record and appends its old/new values in the same transaction.
+Timestamps use UTC ISO 8601. `changed_by` is optional; no authentication is added.
+Automated prediction writes create no audits. Activity prediction JSON and model
+scores remain provenance; `Activity.activity_label` is the current corrected label.
+
+Retrieve live summaries and original video portions using the existing retriever:
+
+```python
+from video_retrieval import VideoRetriever
+
+r = VideoRetriever("../data/analysis.local.sqlite")
+info = r.get_person_clip_info(clip_id=12)  # Frozen ClipInfo dataclass
+summary = r.get_person_clip_summary(clip_id=12, include_details=True)
+segment = r.get_person_clip(clip_id=12)  # VideoSegment, RGB uint8 frames
+segment = r.get_segment(info.video_id, info.start_time_seconds, info.end_time_seconds)
+```
+
+`summary` includes the video ID/path, boundaries, people, activity dominant label
+and distribution, engagement means, and per-person engagement summaries.
+Activity weights are the duration of each prediction window's overlap with the
+clip, normalized across all overlapping windows. Windows are independent evidence,
+so their weights are not deduplicated timeline coverage. Dominant-label ties use
+alphabetical order. Details include current Activity rows and `overlap_seconds`.
+No activities yields a null dominant label and an empty distribution.
+
+Engagement averages available observations for clip members in the same video's
+half-open interval `[start, end)`. Missing observations are excluded. Each group
+or person summary has `positive`, `neutral`, `negative`, and `observation_count`;
+no observations yields null means and count zero. Group means are weighted by
+observation count, not equally by person. Corrections appear on the next query
+without changing clips. Database-only interfaces are available from
+`analysis_db.clip_analytics` and `analysis_db.clips`.
+
+Segment retrieval returns all frames with normalized presentation timestamps in
+`[start, end)`, source frame indices, and requested boundaries. Comparisons use the
+same floating-point precision as SQLite timestamps. Empty frame intervals raise
+`ValueError`; there is no edge padding. Retrieval reuses source paths and PyAV,
+opens the source once per segment, and writes no video files. Results follow the
+existing RGB-array contract, with no audio or encoded playback container. Full
+resolution segments can use substantial memory; retain only arrays you need.
+The full presentation-timestamp stream is validated on each request, while only
+in-range frames are converted to RGB; decoding cost scales with source duration.
+The existing `get_clip(detection_id)` still returns its original 32-frame window.
+
+See [`db/README.md`](db/README.md) for extension structures and lifecycle details.
 
 The signal loader reads both legacy per-detection and new frame-linked Activity layouts.
 Frame-linked results are shared only by detections at their center frame; their time windows
@@ -395,6 +543,10 @@ uv run python scripts/replace_identity.py --tables <run>/Database --db ../data/a
 - Refused once the database holds any annotation or review clip: re-clustering would
   silently reassign the anonymous IDs that reviewed work refers to.
 
+- Replacement is rejected after audit history or finalized clips exist, including
+  finalization that produced zero clips. This preserves history and static identity
+  membership. Perform identity replacement before user corrections and finalization.
+
 ## Loading face-expression (engagement) results
 
 `scripts/load_engagement.py` replaces `Engagement` with the per-detection CSV written by
@@ -411,6 +563,9 @@ uv run python scripts/load_engagement.py --input ../data/csv/face_expression_obs
   After a re-clustering run that drops detections (IDs and boxes of the kept ones unchanged), pass
   `--skip-missing-detections` to reuse the existing scores for the kept detections; skipped rows are counted.
 - One transaction with foreign-key, integrity, and row-count checks; any failure leaves the database unchanged.
+- Retained detections keep their existing `engagement_id` through upserts. Imports
+  do not append audit records. Attempting to remove an audited Engagement record
+  rejects and rolls back the whole import, preserving its history.
 - Scores are derived visual-expression classifications, not measurements of internal emotional state.
 
 ## Exit codes and output
