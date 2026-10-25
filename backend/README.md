@@ -188,6 +188,29 @@ The runner builds a timestamp-only index once per selected video, seeks to each
 window, and reports any sequential-decode fallback. This preserves exact source
 indices and padding, without decoding the whole original for each request.
 
+### Activity labels and automatic uncertainty
+
+`activity_pipeline/config.py` defines 11 known activities, including Acting and
+Speaking, and a complete description for each. The runner uses these descriptions
+directly as model prompts. It does not score an Unknown or Uncertain candidate.
+
+Each saved result applies this rule automatically:
+
+```python
+activity_label = top.label if top.score > MIN_ACTIVITY_SCORE else UNCERTAIN_LABEL
+```
+
+The defaults are `MIN_ACTIVITY_SCORE = 0.65` and
+`UNCERTAIN_LABEL = "Uncertain result"`. Exactly 0.65 also produces the uncertainty
+label. No manual decision is required. `Activity.score` remains the highest known
+class score. `result_json` retains all ranked predictions and adds a `decision`
+object containing the stored label, uncertainty flag, and threshold.
+
+The cutoff uses candidate-relative softmax scores, not calibrated certainty.
+Changing labels, descriptions, or the decision policy changes the configuration
+hash and schedules old results for recomputation when inference resumes. Code
+updates alone do not recalculate previously stored predictions.
+
 FP32 and batch size 2 are the runner defaults, based on GTX 1650 measurements.
 The older single-clip classifier retains its device-based default when precision
 is omitted; pass `precision="fp32"` to override it. One CPU worker prepares batches
@@ -222,8 +245,11 @@ seconds, and writes 28.09 seconds. These phases overlap. Peak allocated GPU memo
 was 1,381.8 MiB. Retrieval is the current bottleneck. The sample covered videos
 1-6; videos 7-12 were not sampled. These figures estimate runtime, not accuracy.
 The repeat run skipped all 100 without model loading or decoding.
+This timing run used the earlier nine generic prompts. The current 11 expanded
+prompts and automatic uncertainty policy were added after that benchmark.
 
-Activity stores the top label/score, full ranked results, actual sampling metadata,
+Activity stores the automatic decision label and highest known-class score,
+full ranked results, actual sampling metadata,
 configuration, and resume hashes. A successful changed configuration replaces the
 frame's current result. Scores are candidate-relative, not calibrated probabilities.
 Detections share the activity of their center frame, not every activity window

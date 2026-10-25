@@ -61,7 +61,7 @@ def test_persistence_resume_advances_limit_and_does_not_change_identities(video,
         assert len(results)==4
         for _, result, sampling in results:
             assert len(json.loads(sampling)["source_frame_indices"])==32
-            assert len(json.loads(result)["predictions"])==9
+            assert len(json.loads(result)["predictions"])==11
 
 
 def test_seeded_resume_retries_failed_member_only(video, fake_forward, monkeypatch):
@@ -171,3 +171,27 @@ def test_preparation_overlaps_inference_with_bounded_queue(video, fake_forward, 
     assert observed==[True]
     assert done.written==4
     assert done.report["batch_sizes"]==[1,1,1,1]
+
+
+def test_expanded_prompts_and_cutoff_are_used_and_invalidate_resume(video, fake_forward, monkeypatch):
+    runner = fake_forward
+    from activity_pipeline.config import ACTIVITY_DESCRIPTIONS, MIN_ACTIVITY_SCORE, UNCERTAIN_LABEL
+    assert {"Acting", "Speaking"}.issubset(runner.ACTIVITIES)
+    assert len(runner.ACTIVITIES) == 11
+    assert UNCERTAIN_LABEL not in runner.ACTIVITIES
+    first = runner.run_activity(video.db_path, sample_size=None, device="cpu")
+    assert first.report["configuration"]["decision_policy"]["min_score_exclusive"] == 0.65
+    assert first.report["configuration"]["prompts"] == [ACTIVITY_DESCRIPTIONS[k] for k in runner.ACTIVITIES]
+    with sqlite3.connect(video.db_path) as c:
+        for raw, in c.execute("SELECT result_json FROM Activity"):
+            predictions = json.loads(raw)["predictions"]
+            assert len(predictions) == 11
+            assert all(p["prompt"] == ACTIVITY_DESCRIPTIONS[p["label"]] for p in predictions)
+    monkeypatch.setattr(runner, "MIN_ACTIVITY_SCORE", MIN_ACTIVITY_SCORE + 0.01)
+    second = runner.run_activity(video.db_path, sample_size=None, device="cpu")
+    assert second.skipped == 0 and second.written == 4
+    revised = dict(ACTIVITY_DESCRIPTIONS)
+    revised["Speaking"] += " The speaker gestures toward the group."
+    monkeypatch.setattr(runner, "ACTIVITY_DESCRIPTIONS", revised)
+    third = runner.run_activity(video.db_path, sample_size=None, device="cpu")
+    assert third.skipped == 0 and third.written == 4

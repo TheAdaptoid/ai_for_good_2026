@@ -94,8 +94,10 @@ PRECISION = "fp32"
 PREFETCH_BATCHES = 2
 BENCHMARK_SIZE = 100
 SEED = 42
+MIN_ACTIVITY_SCORE = 0.65
+UNCERTAIN_LABEL = "Uncertain result"
 ACTIVITIES = (
-    "Dancing", "Rapping", "Singing", "Playing sports", "Playing games",
+    "Dancing", "Rapping", "Singing", "Acting", "Speaking", "Playing sports", "Playing games",
     "Running", "Walking", "Sitting and listening", "Drawing or painting",
 )
 
@@ -251,6 +253,13 @@ and inputs exactly as specified in the spec. Canonical JSON uses sorted keys,
 compact separators, UTF-8, and `allow_nan=False`. Hash the encoded JSON with
 SHA-256. Use `prepare_candidates` from the existing classifier to resolve prompts.
 Store their original configured order, not score order, in the configuration.
+Pass the complete `ACTIVITY_DESCRIPTIONS` mapping for the configured labels to
+candidate preparation, warm-up, and every normal/fallback preparation path.
+Include labels, resolved descriptions, and the decision policy in the hash.
+At persistence, save the known top label only when its score exceeds 0.65.
+Otherwise save "Uncertain result" automatically. Keep the original score and
+ranked predictions; add decision metadata to result JSON. Test 0.64, exactly
+0.65, just above 0.65, and a high score, plus description/threshold cache changes.
 
 - [ ] Add persistence tests: JSON round-trip, matching top label/score, finite
   values, exact 32-entry sampling arrays, frame uniqueness, hash stability under

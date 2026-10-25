@@ -60,12 +60,15 @@ CREATE TABLE Activity (
 - Window times are the requested boundaries. A start time may be negative.
 - `result_json` contains the complete `ClassificationResult`, including ranked
   candidates, resolved prompts, logits, scores, model revision, device, and timings.
+  It also stores the automatic decision label, uncertainty flag, and cutoff.
 - `sampling_json` contains original source frame indices and timestamps, target
   timestamps, decoded reference time, unique-frame count, padding counts, and
   retrieval time. Each sample array has exactly 32 entries.
 - `config_json` records the resolved inference settings described in section 3.
 - `score` is the top candidate's relative softmax score, not a probability of
-  correctness. `activity_label` and `score` must match the first prediction.
+  correctness. Keep that score even when `activity_label` is "Uncertain result".
+  Save the known activity label only when its top score is greater than 0.65.
+  Scores at or below 0.65 automatically produce "Uncertain result".
 - Store one current result per center frame. Replace it only after a new
   classification succeeds. Historical runs are outside this milestone.
 
@@ -117,14 +120,18 @@ PRECISION = "fp32"
 PREFETCH_BATCHES = 2
 BENCHMARK_SIZE = 100
 SEED = 42
+MIN_ACTIVITY_SCORE = 0.65
+UNCERTAIN_LABEL = "Uncertain result"
 ACTIVITIES = (
-    "Dancing", "Rapping", "Singing", "Playing sports", "Playing games",
+    "Dancing", "Rapping", "Singing", "Acting", "Speaking", "Playing sports", "Playing games",
     "Running", "Walking", "Sitting and listening", "Drawing or painting",
 )
 ```
 
-Reuse the pinned X-CLIP checkpoint, default prompt template, and no custom
-descriptions. Keep settings in one backend module. Load the model once with FP32
+Reuse the pinned X-CLIP checkpoint. Use the complete per-class descriptions in
+`activity_pipeline/config.py` as prompts for all 11 known activities. Uncertainty
+is an automatic output rule, not a scored model candidate. Keep settings in one
+backend module. Load the model once with FP32
 weights and FP32 inputs on CUDA. Do not load FP16 weights and then convert them
 back to FP32. CPU remains FP32. Add an explicit precision option to the classifier;
 preserve its existing default behavior for callers that omit that option.
@@ -171,8 +178,9 @@ Keep all model assets and inference local. Use inference mode and no silent CPU
 retry. Configurable batch size and precision allow later timing comparisons.
 
 Compute a SHA-256 `config_hash` from canonical JSON containing checkpoint ID and
-revision, ordered resolved prompts, interval, sample count, indexed sampler version,
-configured batch size, resolved device, and dtype. Sample size, seed, and queue
+revision, ordered labels and resolved prompts, automatic decision policy, interval,
+sample count, indexed sampler version, configured batch size, resolved device,
+and dtype. Sample size, seed, and queue
 capacity do not change a clip's intended model input and stay outside this hash.
 Compute `input_hash` from frame ID, video ID, source
 frame number, stored source time, repository-relative video path, file size, and

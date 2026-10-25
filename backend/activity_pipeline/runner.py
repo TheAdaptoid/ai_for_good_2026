@@ -21,8 +21,9 @@ from analysis_db.activity_schema import require_activity_schema
 from analysis_db.paths import REPOSITORY_ROOT
 from analysis_db.storage import connect_database
 from video_retrieval.indexed import IndexedTemporalSampler, SAMPLER_VERSION
-from .config import (ACTIVITIES, BATCH_SIZE, BENCHMARK_SIZE, INTERVAL_SECONDS,
-                     PRECISION, PREFETCH_BATCHES, SAMPLE_COUNT, SEED)
+from .config import (ACTIVITIES, ACTIVITY_DESCRIPTIONS, BATCH_SIZE, BENCHMARK_SIZE,
+                     INTERVAL_SECONDS, MIN_ACTIVITY_SCORE, PRECISION, PREFETCH_BATCHES,
+                     SAMPLE_COUNT, SEED, UNCERTAIN_LABEL)
 from .selection import sample_frame_jobs, select_frame_jobs
 
 
@@ -96,6 +97,12 @@ def _run(connection, video_ids, sample_size, seed, limit, device, precision,
         "estimated_remaining_seconds":None,"timing_sample":"none",
         "peak_gpu_memory_allocated_mib":None,"seek_fallbacks":0,
     })
+    descriptions = {label: ACTIVITY_DESCRIPTIONS[label] for label in ACTIVITIES}
+    report["settings"].update(
+        activities=list(ACTIVITIES),
+        prompts=[c.prompt for c in prepare_candidates(list(ACTIVITIES), descriptions=descriptions)],
+        decision_policy={"min_score_exclusive":MIN_ACTIVITY_SCORE,"uncertain_label":UNCERTAIN_LABEL},
+    )
     skipped = attempted = written = failed = 0
     if dry_run or not selected:
         return RunSummary(len(population),len(selected),0,0,0,0,report)
@@ -113,8 +120,7 @@ def _run(connection, video_ids, sample_size, seed, limit, device, precision,
     # Queue depth and center selection do not change a clip's intended model input.
     settings.pop("prefetch_batches")
     settings.pop("requested_device")
-    settings.update(model=MODEL_ID,model_revision=MODEL_REVISION,device=str(resolved_device),
-                    dtype=str(dtype),prompts=[c.prompt for c in prepare_candidates(list(ACTIVITIES))])
+    settings.update(model=MODEL_ID,model_revision=MODEL_REVISION,device=str(resolved_device),dtype=str(dtype))
     config_json, config_hash = canonical_json(settings), config_fingerprint(settings)
     report["configuration"] = settings
     pending = []
@@ -141,7 +147,7 @@ def _run(connection, video_ids, sample_size, seed, limit, device, precision,
     if pending:
         started=perf_counter()
         dummy=np.zeros((SAMPLE_COUNT,classifier.image_size,classifier.image_size,3),np.uint8)
-        classifier.classify_batch([dummy]*batch_size,list(ACTIVITIES))
+        classifier.classify_batch([dummy]*batch_size,list(ACTIVITIES),descriptions=descriptions)
         report["setup_seconds"]["warmup"]=perf_counter()-started
         del dummy
     queue=Queue(maxsize=prefetch_batches)
@@ -164,13 +170,13 @@ def _run(connection, video_ids, sample_size, seed, limit, device, precision,
                 if not jobs:
                     return
                 try:
-                    prepared=classifier.prepare_batch(clips,list(ACTIVITIES))
+                    prepared=classifier.prepare_batch(clips,list(ACTIVITIES),descriptions=descriptions)
                     item=("batch",tuple(jobs),tuple(sampling),prepared)
                 except Exception as exc:
                     # Isolate a bad preparation input without discarding its valid peer.
                     for job,clip,meta in zip(jobs,clips,sampling):
                         try:
-                            prepared=classifier.prepare_batch([clip],list(ACTIVITIES))
+                            prepared=classifier.prepare_batch([clip],list(ACTIVITIES),descriptions=descriptions)
                             put(("batch",(job,),(meta,),prepared))
                         except Exception as single:
                             put(("clip_error",job,str(single)))
