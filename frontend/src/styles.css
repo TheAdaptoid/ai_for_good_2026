@@ -131,7 +131,7 @@ table.videos tbody th { font-weight: 500; white-space: normal; }
 table.videos tbody tr:last-child > * { border-bottom: 0; }
 table.videos tbody tr:hover { background: var(--surface-2); }
 table.videos tbody th a {
-  display: inline-flex; align-items: center; min-width: 12rem; min-height: 40px; max-width: 100%;
+  display: inline-flex; align-items: center; min-width: 12rem; min-height: 40px; width: 100%;
   padding: .5rem .9rem; border: 1px solid var(--accent); border-radius: var(--radius);
   background: var(--accent); color: var(--accent-text); text-decoration: none; overflow-wrap: anywhere;
 }

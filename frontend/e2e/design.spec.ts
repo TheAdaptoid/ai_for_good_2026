@@ -111,6 +111,13 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await fits(page)
     await capture(page, `${name}-dashboard`)
     const videoLink = page.getByRole('link', { name: video.title, exact: true })
+    const unusedWidth = await videoLink.evaluate((element) => {
+      const cell = element.closest('th')!
+      const style = getComputedStyle(cell)
+      return cell.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+        - element.getBoundingClientRect().width
+    })
+    expect(Math.abs(unusedWidth)).toBeLessThan(2)
     await expect(videoLink).toHaveCSS('background-color', 'rgb(88, 27, 158)')
     await expect(videoLink).toHaveCSS('color', 'rgb(255, 255, 255)')
     await expect(videoLink).toHaveCSS('text-decoration-line', 'none')

@@ -187,3 +187,10 @@ Validation: 32 Vitest tests, typecheck, lint, build, 17 privacy-safe browser tes
 Impeccable checks pass. Responsive design variants verify colors, default/hover contrast,
 keyboard focus and Enter navigation, with a synthetic desktop capture inspected. No backend
 tests were rerun and no database, participant media, or Spec 005 files are part of this change.
+
+## Dashboard feedback: fill the video column
+
+Video title buttons now fill their table cell's content width, retaining the existing cell
+padding. Responsive browser checks compare the actual button width against the available
+cell width at 320–2400px. All 32 unit tests, 17 privacy-safe browser tests, typecheck, lint,
+build, and shipping Impeccable checks pass. Backend tests were not rerun for this CSS change.
