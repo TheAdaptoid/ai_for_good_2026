@@ -96,8 +96,10 @@ def main(argv: list[str] | None = None) -> int:
         activity = []
         annotator = None
         if not args.no_activity:
-            labels = [label.name for label in list_labels(connection, category="activity")]
             prompts_text = PROMPTS_PATH.read_text(encoding="utf-8")
+            prompts = json.loads(prompts_text)
+            # Staff-created labels become model candidates only after an explicit prompt is added.
+            labels = [label.name for label in list_labels(connection, category="activity") if label.name in prompts]
             video_dir = args.video_dir.resolve()
             paths, missing = {}, []
             for _, filename, file_path in videos:
@@ -111,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
             from pipeline.frames import read_windows
             device = resolve_device(args.device)
             classifier = XCLIPClassifier(device=device)
-            annotator = ZeroShotActivityAnnotator(classifier, labels, json.loads(prompts_text), paths,
+            annotator = ZeroShotActivityAnnotator(classifier, labels, prompts, paths,
                                                   read_windows, config)
             activity = [annotator]
             models = ((MODEL_ID, MODEL_REVISION),)

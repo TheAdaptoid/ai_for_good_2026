@@ -203,7 +203,7 @@ export function VideoView() {
                   <img className="clip-tile__thumb" src={`/api/person-clips/${clip.clip_id}/thumbnail`} alt=""
                     loading="lazy" decoding="async" onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
                   <span className="clip-tile__title">#{rank + 1} · Clip {clip.clip_id}</span>
-                  <span className="muted small">{formatTime(clip.start_seconds)}–{formatTime(clip.end_seconds)}</span>
+                  <span className="muted small">{formatTime(clip.end_seconds - clip.start_seconds)} duration</span>
                   <span className="clip-tile__score">Impact score {clip.impact_score!.toFixed(3)}</span>
                   <span className="clip-tile__people">{clip.person_ids.length} participant{clip.person_ids.length === 1 ? '' : 's'}</span>
                 </button>

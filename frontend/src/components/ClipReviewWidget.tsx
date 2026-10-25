@@ -7,22 +7,22 @@ const SCORES = ['positive', 'neutral', 'negative'] as const
 const OTHER = '__other__'
 
 /** Staff review of a stored clip: Accept or Defer set its status; Edit corrects its stored signals. */
-export function ClipReviewWidget({ clip, version, onChanged, onDeferred }: {
-  clip: PersonClip; version: number; onChanged: () => void; onDeferred: () => void
+export function ClipReviewWidget({ clip, onReviewed }: {
+  clip: PersonClip; onReviewed: (status: 'ACCEPTED' | 'EDITED' | 'DEFERRED') => void
 }) {
   const labels = useResource(api.labels, [])
-  const summary = useResource(() => api.personClipSummary(clip.clip_id), [clip.clip_id, version])
+  const summary = useResource(() => api.personClipSummary(clip.clip_id), [clip.clip_id])
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function run(action: () => Promise<unknown>, done = onChanged) {
+  async function run(action: () => Promise<unknown>, status: 'ACCEPTED' | 'EDITED' | 'DEFERRED') {
     setBusy(true)
     setError(null)
     try {
       await action()
       setEditing(false)
-      done()
+      onReviewed(status)
     } catch (caught) {
       setError((caught as Error).message)
     } finally {
@@ -45,12 +45,12 @@ export function ClipReviewWidget({ clip, version, onChanged, onDeferred }: {
           scores={summary.data.visible_affect}
           busy={busy}
           onCancel={() => setEditing(false)}
-          onSubmit={(body) => void run(() => api.editPersonClip(clip.clip_id, body))} />
+          onSubmit={(body) => void run(() => api.editPersonClip(clip.clip_id, body), 'EDITED')} />
       ) : (
         <div className="button-row">
-          <button type="button" className="primary" disabled={busy} onClick={() => void run(() => api.reviewPersonClip(clip.clip_id, 'accept'))}>Accept</button>
+          <button type="button" className="primary" disabled={busy} onClick={() => void run(() => api.reviewPersonClip(clip.clip_id, 'accept'), 'ACCEPTED')}>Accept</button>
           <button type="button" disabled={busy} onClick={() => setEditing(true)}>Edit…</button>
-          <button type="button" disabled={busy} onClick={() => void run(() => api.reviewPersonClip(clip.clip_id, 'defer'), onDeferred)}>Defer</button>
+          <button type="button" disabled={busy} onClick={() => void run(() => api.reviewPersonClip(clip.clip_id, 'defer'), 'DEFERRED')}>Defer</button>
         </div>
       ))}
       {error && <p className="form-error" role="alert">{error}</p>}
@@ -113,7 +113,7 @@ function EditForm({ activityLabels, current, scores, busy, onCancel, onSubmit }:
         <label>
           New activity label
           <input type="text" maxLength={200} value={otherName} autoFocus onChange={(e) => setOtherName(e.target.value)} />
-          <span className="muted small">Saving adds it to the activity labels for every clip.</span>
+          <span className="muted small">Adds a reusable staff label and assigns it only to this clip's frames. Model predictions stay unchanged.</span>
         </label>
       )}
       <fieldset className="field-trio">
@@ -127,8 +127,8 @@ function EditForm({ activityLabels, current, scores, busy, onCancel, onSubmit }:
         ))}
       </fieldset>
       <p className="muted small">
-        Saving relabels every activity window overlapping this clip and sets every member's visible-affect
-        scores inside it to these values. Original values stay in the correction history.
+        Saving records a human activity annotation only for this clip's frames. Model activity predictions
+        stay unchanged. Changed visible-affect scores apply to this clip's members and remain audited.
       </p>
       {problem && <p className="form-error" role="alert">{problem}</p>}
       <div className="button-row">

@@ -192,6 +192,18 @@ def test_stream_refuses_outside_and_missing(client, videos_dir):
     assert client.get("/api/videos/1/stream").status_code == 404
 
 
+def test_stream_seeks_across_chunks_and_reads_the_tail(client, videos_dir):
+    content = bytes(range(256)) * 8193
+    (videos_dir / "one.mp4").write_bytes(content)
+    start, end = 1024 * 1024 - 100, 2 * 1024 * 1024 + 100
+    part = client.get("/api/videos/1/stream", headers={"Range": f"bytes={start}-{end}"})
+    assert part.status_code == 206 and part.content == content[start:end + 1]
+    assert part.headers["content-range"] == f"bytes {start}-{end}/{len(content)}"
+    tail = client.get("/api/videos/1/stream", headers={"Range": "bytes=-128"})
+    assert tail.status_code == 206 and tail.content == content[-128:]
+    assert client.get("/api/videos/1/stream", headers={"Range": f"bytes={len(content)}-"}).status_code == 416
+
+
 def test_participants(client):
     people = {p["person_id"]: p for p in client.get("/api/participants").json()}
     assert people["Person_0001"]["video_count"] == 1 and len(people) == 3
@@ -511,7 +523,7 @@ def test_clip_accept_and_defer_change_only_status_and_append_history(client, sto
     assert summary['dominant_activity'] == 'Stored singing'
 
 
-def test_clip_edit_corrects_signals_with_audit_and_sets_edited(client, stored):
+def test_clip_edit_preserves_model_activity_and_audits_human_changes(client, stored):
     response = client.post('/api/person-clips/1/edit', json={
         'activity_label': 'Dancing', 'positive_score': 0.9, 'neutral_score': 0.1, 'negative_score': 0.0})
     assert response.status_code == 200, response.text
@@ -519,8 +531,11 @@ def test_clip_edit_corrects_signals_with_audit_and_sets_edited(client, stored):
     summary = client.get('/api/person-clips/1/summary').json()
     assert summary['dominant_activity'] == 'Dancing'
     assert summary['visible_affect']['positive'] == 0.9
-    assert stored.execute('SELECT old_label,new_label,changed_by FROM ActivityAudit').fetchall() == [
-        ('Stored singing', 'Dancing', 'alex')]
+    assert summary['activity_source'] == 'HUMAN'
+    assert stored.execute('SELECT activity_label FROM Activity').fetchall() == [('Stored singing',)]
+    assert stored.execute('SELECT COUNT(*) FROM ActivityAudit').fetchone() == (0,)
+    assert stored.execute('SELECT start_frame,end_frame,source FROM Annotation').fetchall() == [(24, 24, 'HUMAN')]
+    assert client.get('/api/person-clips/2/summary').json()['dominant_activity'] == 'Stored singing'
     assert stored.execute('SELECT old_positive_score,new_positive_score,changed_by FROM EngagementAudit').fetchall() == [
         (0.6, 0.9, 'alex')]
     assert stored.execute('SELECT action,resulting_status FROM ClipReviewEvent').fetchall() == [('EDIT', 'EDITED')]
@@ -536,12 +551,63 @@ def test_clip_edit_can_add_a_new_activity_label_atomically(client, stored):
     assert client.post('/api/person-clips/2/edit', json={**body, 'activity_label': 'beatboxing'}).status_code == 400
     # A failed edit leaves no new label behind.
     assert client.post('/api/person-clips/2/edit', json={'activity_label': ' ', 'create_activity_label': True}).status_code == 400
-    # No activity window overlaps clip 3, so the edit changes nothing and the new label rolls back.
+    # No analyzed frames belong to clip 3, so the new label rolls back with the failed edit.
     stored.execute("INSERT INTO Clip(clip_id,video_id,start_time_seconds,end_time_seconds,created_at)"
                    " VALUES (3,1,10.0,12.0,'now')")
     assert client.post('/api/person-clips/3/edit', json={'activity_label': 'Juggling',
                                                           'create_activity_label': True}).status_code == 400
     assert 'Juggling' not in [l['name'] for l in client.get('/api/labels').json()]
+
+
+def test_manual_activity_labels_are_frame_scoped_reusable_and_keep_history(client, stored):
+    stored.execute("INSERT INTO Frame VALUES('start',1,6,0.25)")
+    stored.execute("INSERT INTO Frame VALUES('end',1,66,2.75)")
+    stored.execute("INSERT INTO Frame VALUES('next',1,72,3.0)")
+    before = stored.execute('SELECT * FROM Activity').fetchall()
+    response = client.post('/api/person-clips/1/edit', json={'activity_label': 'Beatboxing', 'create_activity_label': True})
+    assert response.status_code == 200, response.text
+    assert stored.execute('SELECT start_frame,end_frame,source,confidence FROM Annotation').fetchall() == [(6, 24, 'HUMAN', None)]
+    assert stored.execute('SELECT * FROM Activity').fetchall() == before
+    assert client.get('/api/person-clips/2/summary').json()['dominant_activity'] == 'Stored singing'
+    assert client.get('/api/person-clips/2').json()['review_status'] == 'UNREVIEWED'
+    assert client.post('/api/person-clips/1/edit', json={'activity_label': 'Beatboxing'}).status_code == 400
+    assert client.post('/api/person-clips/1/edit', json={'activity_label': 'Dancing'}).status_code == 200
+    assert stored.execute('SELECT COUNT(*) FROM Annotation').fetchone() == (1,)
+    assert stored.execute('SELECT action,new_source FROM ReviewEvent ORDER BY event_id').fetchall() == [('CREATED', 'HUMAN'), ('EDITED', 'HUMAN')]
+    assert client.post('/api/person-clips/2/edit', json={'activity_label': 'Beatboxing'}).status_code == 200
+    assert client.get('/api/person-clips/1/summary').json()['dominant_activity'] == 'Dancing'
+    assert client.get('/api/person-clips/2/summary').json()['dominant_activity'] == 'Beatboxing'
+    names = [label['name'] for label in client.get('/api/labels?category=activity').json()]
+    assert 'Dancing' in names and names.count('Beatboxing') == 1
+    assert stored.execute('SELECT * FROM Activity').fetchall() == before
+    annotations = client.get('/api/annotations?video_id=1&category=activity').json()
+    assert len(annotations) == 2 and all(a['source'] == 'HUMAN' for a in annotations)
+    exported = client.get('/api/exports/annotations?format=json').json()
+    assert {a['label_name'] for a in exported} == {'Dancing', 'Beatboxing'}
+    assert client.get('/api/exports/database/activity?format=json').json()[0]['activity_label'] == 'Stored singing'
+
+
+@pytest.mark.parametrize('query,identities', [('sing', [1, 2]), ('SING', [1, 2]), ('#2', [2]), ('0002', [2]),
+    ('%_', [1, 2]), ("' OR 1=1 --", []), ('missing', []), ('  ', [1, 2, 3])])
+def test_clip_search_matches_titles_or_exact_ids_with_consistent_counts(client, stored, query, identities):
+    stored.execute("UPDATE Video SET title='Singing %_ camp' WHERE video_id=1")
+    stored.execute("UPDATE Video SET title='Other video' WHERE video_id=2")
+    stored.execute("INSERT INTO Clip(clip_id,video_id,start_time_seconds,end_time_seconds,created_at) VALUES(3,2,0,5,'now')")
+    stored.execute("UPDATE Clip SET review_status='ACCEPTED' WHERE clip_id=2")
+    result = client.get('/api/person-clips', params={'search': query})
+    assert result.status_code == 200
+    assert [row['clip_id'] for row in result.json()] == identities
+    counts = client.get('/api/person-clips/status-counts', params={'search': query}).json()
+    assert sum(counts.values()) == len(identities)
+    filtered = client.get('/api/person-clips', params={'search': query, 'review_status': 'ACCEPTED'}).json()
+    assert [row['clip_id'] for row in filtered] == ([2] if 2 in identities else [])
+    page = client.get('/api/person-clips', params={'search': query, 'limit': 1, 'offset': 1}).json()
+    assert [row['clip_id'] for row in page] == identities[1:2]
+
+
+def test_clip_search_refuses_overlong_queries(client):
+    for path in ('/api/person-clips', '/api/person-clips/status-counts'):
+        assert client.get(path, params={'search': 'x' * 201}).status_code == 422
 
 
 @pytest.mark.parametrize('body', [{}, {'activity_label': 'Not a label'}, {'positive_score': 0.5},

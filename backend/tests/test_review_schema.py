@@ -172,11 +172,15 @@ def test_real_database_migration(tmp_path):
     shutil.copyfile(REAL_DB, db)
     with closing(sqlite3.connect(REAL_DB)) as original:
         engagement = original.execute("SELECT * FROM Engagement ORDER BY 1").fetchall()
+        labels = original.execute("SELECT * FROM Label ORDER BY label_id").fetchall()
     initialize_database(db)
     initialize_database(db)
     with closing(sqlite3.connect(db)) as connection:
         counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                   for table in ("Video", "Person", "FaceDetection", "Engagement", "Label")}
         assert counts == {"Video": 12, "Person": 100, "FaceDetection": 50514,
-                          "Engagement": 50514, "Label": 18}
+                          "Engagement": 50514, "Label": len(labels)}
+        assert connection.execute("SELECT * FROM Label ORDER BY label_id").fetchall() == labels
+        assert set(STARTER_LABELS) <= set(connection.execute(
+            "SELECT label_id,name,category FROM Label").fetchall())
         assert connection.execute("SELECT * FROM Engagement ORDER BY 1").fetchall() == engagement

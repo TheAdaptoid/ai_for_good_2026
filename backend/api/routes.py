@@ -44,8 +44,10 @@ def video_participants(video_id: int, connection: Db) -> list[VideoParticipant]:
 @router.get("/videos/{video_id}/stream", tags=["videos"], response_class=FileResponse)
 def stream(video_id: int, request: Request, connection: Db) -> FileResponse:
     # FileResponse answers Range requests with 206, which browsers need for seeking.
-    return FileResponse(catalog.video_file(connection, video_id, request.app.state.video_dir),
-                        media_type="video/mp4")
+    response = FileResponse(catalog.video_file(connection, video_id, request.app.state.video_dir),
+                            media_type="video/mp4")
+    response.chunk_size = 1024 * 1024  # Fewer threadpool reads for local video transfers.
+    return response
 
 
 @router.get("/participants", tags=["participants"])
@@ -123,10 +125,11 @@ def edit(annotation_id: int, body: EditRequest, account: Staff, connection: Db) 
 @router.get("/person-clips", tags=["clips"])
 def person_clips(connection: Db, video_id: int | None = None, person_id: str | None = None,
                  review_status: Literal["UNREVIEWED", "ACCEPTED", "EDITED", "DEFERRED"] | None = None,
+                 search: Annotated[str | None, Query(max_length=200)] = None,
                  limit: Annotated[int | None, Query(ge=1, le=1000)] = None,
                  offset: Annotated[int, Query(ge=0)] = 0) -> list[PersonClip]:
     return stored_analysis.list_person_clips(connection, video_id=video_id, person_id=person_id,
-                                           review_status=review_status, limit=limit, offset=offset)
+                                           review_status=review_status, search=search, limit=limit, offset=offset)
 
 
 @router.get("/processing", tags=["videos"])
@@ -140,8 +143,8 @@ def activity_counts(connection: Db) -> list[ActivityCount]:
 
 
 @router.get("/person-clips/status-counts", tags=["clips"])
-def person_clip_status_counts(connection: Db) -> dict[str, int]:
-    return stored_analysis.person_clip_status_counts(connection)
+def person_clip_status_counts(connection: Db, search: Annotated[str | None, Query(max_length=200)] = None) -> dict[str, int]:
+    return stored_analysis.person_clip_status_counts(connection, search=search)
 
 
 @router.get("/person-clips/{clip_id}", tags=["clips"])

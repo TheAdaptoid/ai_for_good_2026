@@ -977,6 +977,11 @@ export interface components {
             activity_distribution: {
                 [key: string]: number;
             };
+            /**
+             * Activity Source
+             * @default AI
+             */
+            activity_source: string;
             /** Dominant Activity */
             dominant_activity: string | null;
             /** Impact Score */
@@ -1720,6 +1725,7 @@ export interface operations {
                 video_id?: number | null;
                 person_id?: string | null;
                 review_status?: ("UNREVIEWED" | "ACCEPTED" | "EDITED" | "DEFERRED") | null;
+                search?: string | null;
                 limit?: number | null;
                 offset?: number;
             };
@@ -1751,7 +1757,9 @@ export interface operations {
     };
     person_clip_status_counts_api_person_clips_status_counts_get: {
         parameters: {
-            query?: never;
+            query?: {
+                search?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1767,6 +1775,15 @@ export interface operations {
                     "application/json": {
                         [key: string]: number;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

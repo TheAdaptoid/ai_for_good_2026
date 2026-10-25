@@ -36,6 +36,7 @@ class StoredClipSummary:
     activity_distribution: dict[str, float]
     visible_affect: AffectScores
     impact_score: float | None = None
+    activity_source: str = "AI"
 
 
 def clip_impact_score(mean_positive: float | None, participant_count: int,
@@ -48,7 +49,7 @@ def clip_impact_score(mean_positive: float | None, participant_count: int,
 
 def list_person_clips(connection: sqlite3.Connection, *, video_id: int | None = None,
                       person_id: str | None = None, clip_id: int | None = None,
-                      review_status: str | None = None,
+                      review_status: str | None = None, search: str | None = None,
                       limit: int | None = None, offset: int = 0) -> list[PersonClip]:
     clauses, params = [], []
     for column, value in (("video_id", video_id), ("clip_id", clip_id), ("review_status", review_status)):
@@ -58,6 +59,10 @@ def list_person_clips(connection: sqlite3.Connection, *, video_id: int | None = 
     if person_id is not None:
         clauses.append("EXISTS (SELECT 1 FROM ClipPerson p WHERE p.clip_id=c.clip_id AND p.person_id=?)")
         params.append(person_id)
+    search_clause, search_params = _clip_search(search)
+    if search_clause:
+        clauses.append(search_clause)
+        params.extend(search_params)
     where = " WHERE " + " AND ".join(clauses) if clauses else ""
     page = where + " ORDER BY c.video_id,c.start_time_seconds,c.clip_id LIMIT ? OFFSET ?"
     values = (*params, -1 if limit is None else limit, offset)
@@ -152,8 +157,22 @@ def processing_progress(connection: sqlite3.Connection) -> list[VideoProgress]:
 CLIP_REVIEW_STATUSES = ("UNREVIEWED", "ACCEPTED", "EDITED", "DEFERRED")
 
 
-def person_clip_status_counts(connection: sqlite3.Connection) -> dict[str, int]:
-    counts = dict(connection.execute("SELECT review_status,COUNT(*) FROM Clip GROUP BY review_status"))
+def _clip_search(search: str | None) -> tuple[str, tuple[str, ...]]:
+    query = (search or "").strip()
+    if not query:
+        return "", ()
+    identity = query.removeprefix("#").strip()
+    if identity.isdecimal():
+        identity = str(int(identity))
+    return ("(c.video_id IN (SELECT video_id FROM Video WHERE INSTR(LOWER(title),LOWER(?))>0)"
+            " OR CAST(c.clip_id AS TEXT)=?)", (query, identity))
+
+
+def person_clip_status_counts(connection: sqlite3.Connection, *, search: str | None = None) -> dict[str, int]:
+    clause, params = _clip_search(search)
+    counts = dict(connection.execute("SELECT c.review_status,COUNT(*) FROM Clip c"
+                                     + (" WHERE " + clause if clause else "")
+                                     + " GROUP BY c.review_status", params))
     return {status: counts.get(status, 0) for status in CLIP_REVIEW_STATUSES}
 
 
@@ -166,10 +185,15 @@ def get_person_clip(connection: sqlite3.Connection, clip_id: int) -> PersonClip:
 
 def person_clip_summary(connection: sqlite3.Connection, clip_id: int) -> StoredClipSummary:
     result = get_clip_summary(connection, clip_id)
-    return StoredClipSummary(result['activity']['dominant_label'],
-                             result['activity']['distribution'], AffectScores(**result['engagement']),
+    manual = connection.execute(
+        "SELECT l.name FROM Annotation a JOIN Label l ON l.label_id=a.label_id"
+        " WHERE a.import_key=? AND a.source='HUMAN' AND a.review_status!='REJECTED'",
+        (f"staff:clip:{clip_id}:activity",)).fetchone()
+    return StoredClipSummary(manual[0] if manual else result['activity']['dominant_label'],
+                             {manual[0]: 1.0} if manual else result['activity']['distribution'], AffectScores(**result['engagement']),
                              clip_impact_score(result['engagement']['positive'], len(result['person_ids']),
-                                               result['end_time_seconds'] - result['start_time_seconds']))
+                                               result['end_time_seconds'] - result['start_time_seconds']),
+                             "HUMAN" if manual else "AI")
 
 
 DATABASE_EXPORTS = {

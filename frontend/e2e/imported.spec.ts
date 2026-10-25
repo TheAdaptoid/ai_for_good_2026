@@ -101,7 +101,7 @@ test('exports carry the current state of imported and reviewed annotations', asy
   await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Visible Neutral Affect')
   await page.getByText('Export', { exact: true }).click()
   const download = page.waitForEvent('download')
-  await page.getByRole('link', { name: 'Annotations (JSON)' }).click()
+  await page.getByRole('link', { name: 'JSON', exact: true }).click()
   const rows: { label_name: string; source: string; review_status: string; confidence: number | null }[] =
     JSON.parse(readFileSync(await (await download).path(), 'utf8'))
   expect(rows).toHaveLength(6)
