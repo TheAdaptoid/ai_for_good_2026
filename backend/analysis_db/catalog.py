@@ -34,6 +34,8 @@ def list_videos(connection: sqlite3.Connection,
         statuses.setdefault(vid, {})[status] = count
     clips = dict(connection.execute(
         f"SELECT video_id, COUNT(*) FROM ReviewClip {where} GROUP BY video_id", params))
+    stored_clips = dict(connection.execute(
+        f"SELECT video_id, COUNT(*) FROM Clip {where} GROUP BY video_id", params))
     result = []
     for vid, title, filename, duration, fps in connection.execute(
             f"SELECT video_id, title, filename, duration_seconds, fps FROM Video {where}"
@@ -44,7 +46,7 @@ def list_videos(connection: sqlite3.Connection,
         result.append(VideoSummary(
             vid, title, filename, duration, fps,
             round(duration * fps) if duration and fps else None,
-            people, count, counts, clips.get(vid, 0)))
+            people, count, counts, clips.get(vid, 0), stored_clips.get(vid, 0)))
     return result
 
 

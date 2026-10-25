@@ -169,3 +169,27 @@ describe('video view', () => {
     expect(await screen.findByText('This video was not found.')).toBeInTheDocument()
   })
 })
+
+it('opens stored analysis independently of a review clip with the same ID', async () => {
+  const storedClip = { clip_id: 3, video_id: 7, start_seconds: 5.25, end_seconds: 9.75,
+    person_ids: ['Person_0002'], created_at: 'now' }
+  const calls = mockApi(videoRoutes({ current: [annotation()] }, {
+    'GET /api/person-clips': [storedClip], 'GET /api/person-clips/3': storedClip,
+    'GET /api/person-clips/3/summary': { dominant_activity: 'Current database activity',
+      activity_distribution: { 'Current database activity': 1 },
+      visible_affect: { positive: 0.6, neutral: 0.3, negative: 0.1, observation_count: 1 } },
+  }))
+  renderAt('/videos/7?clip=3')
+  await screen.findByRole('complementary', { name: 'Review clip' })
+  await userEvent.click(await screen.findByRole('button', { name: 'Clip #3 at 0:05' }))
+  const panel = await screen.findByRole('complementary', { name: 'Database clip' })
+  expect(await within(panel).findByText('Current database activity', { selector: 'p' })).toBeInTheDocument()
+  expect(within(panel).getByText('0.600')).toBeInTheDocument()
+  expect(within(panel).getByRole('link', { name: 'Person_0002' })).toBeInTheDocument()
+  expect(screen.queryByRole('complementary', { name: 'Review clip' })).not.toBeInTheDocument()
+  expect(calls.some((call) => call.path === '/api/person-clips/3/summary')).toBe(true)
+  expect(calls.every((call) => call.method === 'GET')).toBe(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Add annotation' }))
+  expect(screen.queryByRole('complementary', { name: 'Database clip' })).not.toBeInTheDocument()
+  expect(new URL(location.href).searchParams.has('person_clip')).toBe(false)
+})

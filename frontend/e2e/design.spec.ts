@@ -8,7 +8,7 @@ type VideoSummary = components['schemas']['VideoSummary']
 const video: VideoSummary = {
   video_id: 7, title: 'Synthetic songwriting session with a deliberately long program title',
   filename: 'synthetic.mp4', duration_seconds: 100, fps: 24, frame_count: 2400,
-  participant_count: 1, detection_count: 2, clip_count: 1,
+  participant_count: 1, detection_count: 2, clip_count: 1, person_clip_count: 1,
   annotation_counts: { UNREVIEWED: 1, ACCEPTED: 0, EDITED: 0, REJECTED: 0, DEFERRED: 0 },
 }
 const annotation: Annotation = {
@@ -25,6 +25,7 @@ const people = [{ person_id: 'Person_0001', first_seconds: 10, last_seconds: 40,
 
 async function fixture(page: Page) {
   const csv: Record<string, string> = {
+    '/exports/database/clips': 'clip_id,video_id,start_time_seconds,end_time_seconds,person_ids\n8,7,5,35,Person_0001\n',
     '/exports/annotations': 'annotation_id,label_name,source,review_status\n1,Synthetic singing observation,AI,UNREVIEWED\n',
     '/exports/history': 'event_id,annotation_id,action\n',
   }
@@ -33,6 +34,9 @@ async function fixture(page: Page) {
     '/videos': [video], '/videos/7': video, '/videos/7/participants': people,
     '/participants': [{ person_id: 'Person_0001', video_count: 1, detection_count: 2 }],
     '/participants/Person_0001': { person_id: 'Person_0001', videos: [{ ...video, ...people[0] }] },
+    '/person-clips': [{ clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], created_at: '2026-10-25T00:00:00Z' }],
+    '/person-clips/8': { clip_id: 8, video_id: 7, start_seconds: 5, end_seconds: 35, person_ids: ['Person_0001'], created_at: '2026-10-25T00:00:00Z' },
+    '/person-clips/8/summary': { dominant_activity: 'Synthetic singing', activity_distribution: { 'Synthetic singing': 1 }, visible_affect: { positive: 0.5, neutral: 0.4, negative: 0.1, observation_count: 2 } },
     '/clips': [clip], '/clips/3': clip, '/annotations': [annotation], '/annotations/1': annotation,
     '/annotations/1/history': [], '/imports': [],
     '/labels': [{ label_id: 1, name: annotation.label_name, category: 'activity', is_active: true }],
@@ -134,7 +138,7 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByText('Export', { exact: true })).toHaveCount(0)
     await page.getByRole('link', { name: 'Data view', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Data view', level: 1 })).toBeVisible()
-    await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Synthetic singing observation')
+    await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Person_0001')
     await fits(page)
     await capture(page, `${name}-data`)
     await page.getByLabel('Dataset').selectOption('history')
@@ -144,7 +148,7 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Synthetic singing observation')
     await page.getByText('Export', { exact: true }).click()
     await expect(page.getByRole('link', { name: 'Annotations (CSV)' })).toBeVisible()
-    await expect(page.getByText('Download current annotations or review history as CSV or JSON.')).toBeVisible()
+    await expect(page.getByText('Download database records or staff review data as CSV or JSON.')).toBeVisible()
     await page.getByText('Export', { exact: true }).click()
     await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
     await page.getByRole('button', { name: 'Browse participants' }).click()
@@ -175,6 +179,11 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await readable(page)
     await capture(page, `${name}-review`)
     const presence = page.getByRole('button', { name: /Person_0001 on screen/ })
+    await page.getByRole('button', { name: 'Clip #8 at 0:05', exact: true }).click()
+    await expect(page.getByRole('complementary', { name: 'Database clip' })).toContainText('Synthetic singing')
+    await expect(page.getByRole('complementary', { name: 'Database clip' })).toContainText('0.500')
+    await capture(page, `${name}-database-clip`)
+    await page.goto('/videos/7?annotation=1&clip=3')
     await presence.focus()
     await page.keyboard.press('Enter')
     await expect(page.locator('.row--axis .row__label')).toHaveText('0:10')
@@ -206,7 +215,7 @@ for (const [width, colorScheme] of [[320, 'light'], [390, 'light'], [768, 'light
     await fits(page)
     await capture(page, `${name}-participant`)
 
-    await page.route((url) => ['/api/videos', '/api/clips'].includes(url.pathname),
+    await page.route((url) => ['/api/videos', '/api/clips', '/api/person-clips'].includes(url.pathname),
       (route) => route.fulfill({ json: [] }))
     await page.goto('/')
     await expect(page.getByText('No processed videos in the database.')).toBeVisible()

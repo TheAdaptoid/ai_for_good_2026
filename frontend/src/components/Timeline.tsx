@@ -1,10 +1,13 @@
 import { memo, useMemo, type CSSProperties, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import type { Annotation, PresenceInterval, ReviewClip, VideoParticipant } from '../api/client'
+import type { Annotation, PersonClip, PresenceInterval, ReviewClip, VideoParticipant } from '../api/client'
 import { formatTime, tickStep } from '../format'
 
 interface Props {
   duration: number
+  storedClips?: PersonClip[]
+  selectedStoredClipId?: number | null
+  onSelectStoredClip?: (clip: PersonClip) => void
   clips: ReviewClip[]
   annotations: Annotation[]
   participants: VideoParticipant[]
@@ -60,7 +63,7 @@ function group(annotations: Annotation[], participants: VideoParticipant[]) {
   return { byPerson, scene, people }
 }
 
-export function Timeline({ duration, clips, annotations, participants, currentTime, selectedId, selectedClipId, onSeek, onSelect, onSelectClip }: Props) {
+export function Timeline({ duration, storedClips = [], selectedStoredClipId, onSelectStoredClip, clips, annotations, participants, currentTime, selectedId, selectedClipId, onSeek, onSelect, onSelectClip }: Props) {
   const { byPerson, scene, people } = useMemo(() => group(annotations, participants), [annotations, participants])
   const step = tickStep(duration)
   const ticks = Array.from({ length: Math.floor(duration / step) + 1 }, (_, i) => i * step)
@@ -78,6 +81,18 @@ export function Timeline({ duration, clips, annotations, participants, currentTi
               ))}
             </div>
           </div>
+          {storedClips.length > 0 && <div className="row">
+            <div className="row__label">Clips</div>
+            <div className="row__track" onClick={(event) => seekFromTrack(event, duration, onSeek)}>
+              {storedClips.map((clip) => <button key={clip.clip_id} type="button"
+                className={`bar bar--clip ${clip.clip_id === selectedStoredClipId ? 'bar--selected' : ''}`}
+                style={spanStyle(clip.start_seconds, clip.end_seconds, duration)}
+                aria-current={currentTime >= clip.start_seconds && currentTime < clip.end_seconds ? 'time' : undefined}
+                aria-label={`Clip #${clip.clip_id} at ${formatTime(clip.start_seconds)}`}
+                title={`Clip #${clip.clip_id}: ${formatTime(clip.start_seconds)}–${formatTime(clip.end_seconds)}, ${clip.person_ids.length} participants`}
+                onClick={() => { onSeek(clip.start_seconds); onSelectStoredClip?.(clip) }} />)}
+            </div>
+          </div>}
           <div className="row">
             <div className="row__label">Review clips</div>
             <div className="row__track" onClick={(e) => seekFromTrack(e, duration, onSeek)}>

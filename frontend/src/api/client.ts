@@ -12,13 +12,15 @@ export type Annotation = Schemas['Annotation']
 export type ReviewEvent = Schemas['ReviewEvent']
 export type ReviewResult = Schemas['ReviewResult']
 export type ReviewClip = Schemas['ReviewClip']
+export type PersonClip = Schemas['PersonClip']
+export type StoredClipSummary = Schemas['StoredClipSummary']
 export type ImportRun = Schemas['ImportRun']
 export type Label = Schemas['Label']
 export type ReviewStatus = Schemas['ReviewStatus']
 export type CreateAnnotationRequest = Schemas['CreateAnnotationRequest']
 export type EditRequest = Schemas['EditRequest']
 export type ReviewAction = 'accept' | 'reject' | 'defer'
-export type ExportKind = 'annotations' | 'history'
+export type ExportKind = 'annotations' | 'history' | 'clips' | 'activity' | 'engagement' | 'activity-history' | 'engagement-history'
 
 export const REVIEW_STATUSES: ReviewStatus[] = ['UNREVIEWED', 'ACCEPTED', 'EDITED', 'DEFERRED', 'REJECTED']
 
@@ -98,9 +100,13 @@ export const api = {
   clips: (query: { video_id?: number; person_id?: string; order?: 'time' | 'priority'; limit?: number }) =>
     request<ReviewClip[]>('GET', withQuery('/clips', query)),
   clip: (id: number) => request<ReviewClip>('GET', `/clips/${id}`),
+  personClips: (query: { video_id?: number; person_id?: string; limit?: number; offset?: number }) =>
+    request<PersonClip[]>('GET', withQuery('/person-clips', query)),
+  personClip: (id: number) => request<PersonClip>('GET', `/person-clips/${id}`),
+  personClipSummary: (id: number) => request<StoredClipSummary>('GET', `/person-clips/${id}/summary`),
   imports: () => request<ImportRun[]>('GET', '/imports'),
   labels: () => request<Label[]>('GET', '/labels?include_inactive=true'),
-  exportCsv: (kind: ExportKind) => request<string>('GET', `/exports/${kind}?format=csv`, undefined, 'text'),
+  exportCsv: (kind: ExportKind) => request<string>('GET', exportUrl(kind, 'csv').slice(4), undefined, 'text'),
   create: (body: CreateAnnotationRequest) => request<ReviewResult>('POST', '/annotations', body),
   review: (id: number, action: ReviewAction, note: string | null) =>
     request<ReviewResult>('POST', `/annotations/${id}/${action}`, { note }),
@@ -109,4 +115,4 @@ export const api = {
 
 export const streamUrl = (videoId: number) => `/api/videos/${videoId}/stream`
 export const exportUrl = (kind: ExportKind, format: 'csv' | 'json') =>
-  `/api/exports/${kind}?format=${format}`
+  `/api/exports/${kind === 'annotations' || kind === 'history' ? kind : `database/${kind}`}?format=${format}`

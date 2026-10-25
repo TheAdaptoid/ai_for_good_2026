@@ -238,6 +238,7 @@ class VideoSummary:
     detection_count: int
     annotation_counts: dict[str, int]  # every ReviewStatus, zeros included
     clip_count: int
+    person_clip_count: int = 0
 
 
 @dataclass(frozen=True)

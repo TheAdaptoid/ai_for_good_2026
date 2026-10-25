@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api, ApiError, streamUrl, type Annotation, type ReviewClip } from '../api/client'
+import { api, ApiError, streamUrl, type Annotation, type PersonClip, type ReviewClip } from '../api/client'
+import { StoredClipPanel } from '../components/StoredClipPanel'
 import { ClipPanel } from '../components/ClipPanel'
 import { CreateForm } from '../components/CreateForm'
 import { ReviewPanel } from '../components/ReviewPanel'
@@ -16,6 +17,7 @@ export function VideoView() {
   const [params, setParams] = useSearchParams()
   const startAt = Number(params.get('t') ?? 0)
   const selectedId = params.get('annotation') ? Number(params.get('annotation')) : null
+  const storedClipId = params.get('person_clip') ? Number(params.get('person_clip')) : null
   const clipId = params.get('clip') ? Number(params.get('clip')) : null
   const [showRejected, setShowRejected] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -28,6 +30,8 @@ export function VideoView() {
   const annotations = useResource(() => api.annotations({ video_id: videoId, include_rejected: showRejected }),
     [videoId, showRejected])
   const clips = useResource(() => api.clips({ video_id: videoId }), [videoId])
+  const storedClips = useResource(() => api.personClips({ video_id: videoId }), [videoId])
+  const storedClip = useResource(() => storedClipId === null ? Promise.resolve(null) : api.personClip(storedClipId), [storedClipId])
   const labels = useResource(api.labels, [])
   // Loaded on its own so a just-rejected (hidden) annotation stays open in the panel.
   const selected = useResource(() => selectedId === null ? Promise.resolve(null) : api.annotation(selectedId),
@@ -44,6 +48,7 @@ export function VideoView() {
     setParams((current) => {
       const next = new URLSearchParams(current)
       next.set('annotation', String(annotation.annotation_id))
+      next.delete('person_clip')
       return next
     }, { replace: true })
   }, [setParams])
@@ -52,10 +57,26 @@ export function VideoView() {
     setParams((current) => {
       const next = new URLSearchParams(current)
       next.set('clip', String(clip.clip_id))
+      next.delete('person_clip')
       next.delete('annotation')
       return next
     }, { replace: true })
   }, [setParams])
+  const selectStoredClip = (clip: PersonClip) => {
+    setCreating(false)
+    setParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('person_clip', String(clip.clip_id))
+      next.delete('clip')
+      next.delete('annotation')
+      return next
+    }, { replace: true })
+  }
+  const closeStoredClip = () => setParams((current) => {
+    const next = new URLSearchParams(current)
+    next.delete('person_clip')
+    return next
+  }, { replace: true })
   const closeClip = () => setParams((current) => {
     const next = new URLSearchParams(current)
     next.delete('clip')
@@ -87,7 +108,7 @@ export function VideoView() {
           <h1>{summary.title}</h1>
           <p className="muted">
             {formatTime(duration)} · {summary.participant_count} anonymous participants ·{' '}
-            {summary.clip_count} review clips
+            {summary.person_clip_count ?? 0} clips · {summary.clip_count} review clips
           </p>
         </div>
         <button type="button" className="primary" disabled={!fps || !labels.data}
@@ -97,6 +118,7 @@ export function VideoView() {
               const next = new URLSearchParams(current)
               next.delete('annotation')
               next.delete('clip')
+              next.delete('person_clip')
               return next
             }, { replace: true })
             setCreating(true)
@@ -132,9 +154,11 @@ export function VideoView() {
 
           {participants.error && <ErrorState error={participants.error} onRetry={participants.reload} />}
           {annotations.error && <ErrorState error={annotations.error} onRetry={annotations.reload} />}
+          {storedClips.error && <ErrorState error={storedClips.error} onRetry={storedClips.reload} />}
+          {storedClip.error && <ErrorState error={storedClip.error} onRetry={storedClip.reload} />}
           {clips.error && <ErrorState error={clips.error} onRetry={clips.reload} />}
           {participants.data && annotations.data && clips.data && duration > 0 ? (
-            <Timeline duration={duration} clips={clips.data} annotations={annotations.data}
+            <Timeline duration={duration} storedClips={storedClips.data} selectedStoredClipId={storedClipId} onSelectStoredClip={selectStoredClip} clips={clips.data} annotations={annotations.data}
               participants={participants.data} currentTime={currentTime} selectedId={selectedId}
               selectedClipId={clipId} onSeek={seek} onSelect={select} onSelectClip={selectClip} />
           ) : (
@@ -142,11 +166,12 @@ export function VideoView() {
           )}
         </div>
 
+        {storedClip.data && !selected.data && !creating && <StoredClipPanel clip={storedClip.data} onClose={closeStoredClip} />}
         {selected.data && labels.data && (
           <ReviewPanel key={selected.data.annotation_id} annotation={selected.data} labels={labels.data} fps={fps}
             participantIds={participantIds} onChanged={changed} onClose={closePanel} />
         )}
-        {!selected.data && !creating && selectedClip.data && (
+        {!selected.data && !creating && storedClipId === null && selectedClip.data && (
           <ClipPanel key={selectedClip.data.clip_id} clip={selectedClip.data} showRejected={showRejected}
             version={annotations.data} onSelect={select} onClose={closeClip} />
         )}

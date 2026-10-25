@@ -194,3 +194,36 @@ Video title buttons now fill their table cell's content width, retaining the exi
 padding. Responsive browser checks compare the actual button width against the available
 cell width at 320–2400px. All 32 unit tests, 17 privacy-safe browser tests, typecheck, lint,
 build, and shipping Impeccable checks pass. Backend tests were not rerun for this CSS change.
+
+## Stored database records connected to staff screens
+
+After main supplied populated Activity and Clip tables, the staff app was still reading only
+its empty ReviewClip/Annotation tables. Added authenticated read paths for Clip/ClipPerson,
+live activity/visible-affect summaries, and CSV/JSON exports of current Activity, Engagement,
+ActivityAudit, and EngagementAudit records. These queries do not populate or mutate tables.
+
+Dashboard counts and its video table now show stored clips separately from review suggestions.
+The Review page includes a paginated stored-clip list. Video timelines and participant views
+link directly to those clips and their current analysis summaries. Stored clip IDs use a
+separate endpoint/query parameter so they cannot be confused with review-suggestion IDs.
+Staff review behavior and provenance rules remain unchanged. Raw model signals are not assigned
+invented staff review statuses or priorities; visible-affect scores are worded as observations.
+
+Data view defaults to actual stored clips and supports all five analysis/audit datasets as well
+as staff annotations/history. Table rendering is limited to 200 records with an explicit count;
+exports retain every record. The expanded download menu scrolls on narrow screens. Existing
+white/purple styling, light gray surfaces, focus behavior, and player masking are preserved.
+
+Validation: 35 Vitest tests, typecheck, lint, build, 17 privacy-safe browser tests, and shipping
+Impeccable detection pass. Backend: 828 passed, 1 skipped, with only the same two known failures
+documented in the integration note (missing /tmp/opencode and case-insensitive filesystem).
+New API tests cover authentication, filtering/pagination, exact fractional boundaries, ID
+collisions, corrected current values, exports, empty audit headers, and invalid requests.
+Browser coverage includes stored clip panels alongside the existing staff review workflows.
+Inspected only synthetic desktop/mobile captures; test traces/videos/failure screenshots stay off.
+
+Restarted the live backend against data/analysis.sqlite. A temporary local session, removed after
+verification, checked the frontend proxy's 1,988 stored clips, actual participant memberships,
+599 activity export rows, 50,514 visible-affect rows, and both empty audit exports against SQL.
+No raw analysis records, database schemas, models, generation code, or unfinished Spec 005 work
+were changed. The real database and all media/captures remain outside the code commit.

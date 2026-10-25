@@ -17,7 +17,7 @@ export function mockApi(routes: Record<string, Route>): Call[] {
     const method = init.method ?? 'GET'
     const body = init.body ? JSON.parse(init.body as string) : undefined
     calls.push({ method, path: url.pathname + url.search, body })
-    const route = routes[`${method} ${url.pathname}`]
+    const route = routes[`${method} ${url.pathname}`] ?? (method === 'GET' && url.pathname === '/api/person-clips' ? [] : undefined)
     if (route === undefined) return json({ detail: 'not found' }, 404)
     const result = typeof route === 'function' ? route({ url, body }) : route
     return result instanceof Response ? result : json(result)
@@ -34,7 +34,7 @@ export const ME = { staff_id: 1, username: 'alex', is_active: true, created_at: 
 
 export const VIDEO: VideoSummary = {
   video_id: 7, title: 'Songwriting camp', filename: 'song.mp4', duration_seconds: 100, fps: 24,
-  frame_count: 2400, participant_count: 2, detection_count: 30, clip_count: 1,
+  frame_count: 2400, participant_count: 2, detection_count: 30, clip_count: 1, person_clip_count: 0,
   annotation_counts: { UNREVIEWED: 1, ACCEPTED: 0, EDITED: 0, REJECTED: 0, DEFERRED: 0 },
 }
 

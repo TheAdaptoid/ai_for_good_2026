@@ -364,3 +364,69 @@ def test_openapi_script_prints_schema():
     result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert "/api/videos" in json.loads(result.stdout)["paths"]
+
+
+@pytest.fixture
+def stored(db):
+    db.execute("INSERT INTO Clip VALUES (1,1,0.25,2.75,'now')")
+    db.execute("INSERT INTO Clip VALUES (2,1,3.0,5.0,'now')")
+    db.execute("INSERT INTO ClipPerson VALUES (1,'Person_0001')")
+    db.execute("INSERT INTO ClipPerson VALUES (2,'Person_0002')")
+    db.execute("INSERT INTO Activity(activity_id,frame_id,window_start_seconds,window_end_seconds,"
+               "sample_count,activity_label,score,result_json,sampling_json,config_json,config_hash,input_hash)"
+               " VALUES(1,'F1',0,10,32,'Stored singing',0.8,'{}','{}','{}','c','i')")
+    db.execute("INSERT INTO Engagement(detection_id,positive_score,neutral_score,negative_score)"
+               " VALUES(1,0.6,0.3,0.1)")
+    return db
+
+
+def test_stored_clip_reads_filters_and_separate_review_ids(client, stored):
+    stored.execute("INSERT INTO ReviewClip(clip_id,video_id,start_frame,end_frame,created_at)"
+                   " VALUES(1,1,240,480,'now')")
+    clips = client.get('/api/person-clips').json()
+    assert [c['clip_id'] for c in clips] == [1, 2]
+    assert clips[0]['start_seconds'] == 0.25
+    assert clips[0]['person_ids'] == ['Person_0001']
+    assert client.get('/api/person-clips?person_id=Person_0002').json() == [clips[1]]
+    assert client.get('/api/person-clips?video_id=2').json() == []
+    assert client.get('/api/person-clips?limit=1&offset=1').json() == [clips[1]]
+    assert client.get('/api/person-clips/1').json() == clips[0]
+    assert client.get('/api/clips/1').json()['start_frame'] == 240
+    assert client.get('/api/videos/1').json()['person_clip_count'] == 2
+    assert client.get('/api/videos/1').json()['clip_count'] == 1
+    assert stored.execute('SELECT count(*) FROM Annotation').fetchone() == (0,)
+
+
+def test_stored_clip_summary_uses_current_corrected_values(client, stored):
+    from analysis_db.corrections import correct_activity, correct_engagement
+    summary = client.get('/api/person-clips/1/summary').json()
+    assert summary['dominant_activity'] == 'Stored singing'
+    assert summary['activity_distribution'] == {'Stored singing': 1.0}
+    assert summary['visible_affect'] == {'positive': 0.6, 'neutral': 0.3, 'negative': 0.1,
+                                       'observation_count': 1}
+    correct_activity(stored, 1, 'Corrected activity', changed_by='staff')
+    correct_engagement(stored, 1, 0.2, 0.7, 0.1, changed_by='staff')
+    summary = client.get('/api/person-clips/1/summary').json()
+    assert summary['dominant_activity'] == 'Corrected activity'
+    assert summary['visible_affect']['positive'] == 0.2
+    assert client.get('/api/person-clips/2/summary').json()['visible_affect']['observation_count'] == 0
+
+
+@pytest.mark.parametrize('dataset,count', [('clips', 2), ('activity', 1), ('engagement', 1),
+                                          ('activity-history', 0), ('engagement-history', 0)])
+def test_database_exports_read_stored_rows_and_empty_headers(client, stored, dataset, count):
+    base = f'/api/exports/database/{dataset}'
+    response = client.get(base + '?format=csv')
+    assert response.status_code == 200
+    assert len(list(csv.DictReader(io.StringIO(response.text)))) == count
+    assert len(response.text.splitlines()[0].split(',')) > 1
+    assert len(client.get(base + '?format=json').json()) == count
+    assert 'password' not in response.text and 'token' not in response.text
+
+
+@pytest.mark.parametrize('path,status', [('/person-clips/999', 404),
+    ('/person-clips/999/summary', 404), ('/person-clips?limit=0', 422),
+    ('/person-clips?offset=-1', 422), ('/exports/database/StaffAccount?format=csv', 422),
+    ('/exports/database/clips?format=xml', 422)])
+def test_stored_read_validation(client, stored, path, status):
+    assert client.get('/api' + path).status_code == status

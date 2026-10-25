@@ -13,7 +13,7 @@ describe('dashboard', () => {
       'GET /api/clips': [], 'GET /api/imports': [] })
     renderAt('/')
     const row = (await screen.findByRole('link', { name: 'Songwriting camp' })).closest('tr')!
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['1:40', '2', '1', '1', '0', '0', '0', '0'])
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['1:40', '2', '1', '0', '1', '0', '0', '0', '0'])
     expect(screen.getByRole('link', { name: 'Songwriting camp' })).toHaveAttribute('href', '/videos/7')
     expect(within(screen.getByRole('region', { name: 'Totals' })).getByText('Participants').previousSibling).toHaveTextContent('1')
     expect(screen.queryByText('Export', { exact: true })).not.toBeInTheDocument()

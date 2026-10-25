@@ -195,6 +195,23 @@ uv run python scripts/serve.py                          # http://127.0.0.1:8000/
   `annotations/{id}/history`, `POST annotations`, `POST annotations/{id}/accept|reject|defer|edit`;
   `clips?order=time|priority`; `labels`; `exports/annotations|history?format=csv|json`.
 
+Stored analysis is also exposed through authenticated, read-only endpoints:
+
+- `person-clips?video_id=...&person_id=...&limit=...&offset=...` reads `Clip`/`ClipPerson`,
+  ordered by video and time. Either filter and pagination are optional; limit is 1–1000.
+- `person-clips/{id}` returns the stored boundaries in seconds and actual participant IDs.
+- `person-clips/{id}/summary` reuses the live current-label and visible-affect aggregation
+  described under audited corrections below. It exposes neither filesystem paths nor media.
+- `exports/database/{dataset}?format=csv|json`, where dataset is `clips`, `activity`,
+  `engagement`, `activity-history`, or `engagement-history`, reads the corresponding current
+  analysis/audit records. CSV headers are retained for empty datasets; authentication tables
+  are never exportable. Video summaries include `person_clip_count` separately from the
+  existing review-suggestion `clip_count`.
+
+These reads do not generate clips, run models, populate review tables, or alter analysis records.
+Raw signals have no staff review status and no computed review priority. Existing staff
+annotation/review APIs retain their behavior and separate ID namespace.
+
 Review clips and AI annotations stay empty until the clip and annotation pipeline (a later
 feature) runs. Every list then returns an empty array.
 

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
 // Runs against a fresh copy of the real data: 12 videos, 100 anonymous participants, no
-// annotations or clips yet (the clip pipeline is deferred, D018).
+// staff annotations yet; stored analysis and person clips come directly from the database.
 test.describe.configure({ mode: 'serial' })
 
 // Participant footage must never appear in saved artifacts (Constitution I): the player is masked.
@@ -37,7 +37,11 @@ test('sign-in is required and failures are generic', async ({ page }) => {
 test('dashboard lists the real footage', async ({ page }) => {
   await signIn(page)
   await expect(page.locator('table.videos tbody tr')).toHaveCount(12)
-  await expect(page.getByText(/No review clips or suggested annotations yet/)).toBeVisible()
+  await expect(page.getByText(/No review clips or suggested annotations yet/)).toHaveCount(0)
+  const summaries = await (await page.request.get('/api/videos')).json()
+  const total = summaries.reduce((sum: number, video: { person_clip_count: number }) => sum + video.person_clip_count, 0)
+  expect(total).toBeGreaterThan(0)
+  await expect(page.locator('.stat').filter({ has: page.getByText('Clips', { exact: true }) })).toContainText(String(total))
   await expect(page.getByRole('region', { name: 'Review queue' })).toHaveCount(0)
   await expect(page.getByText('No pipeline output has been imported yet.')).toBeVisible()
   await expect(page.locator('.stat', { hasText: 'Participants' })).toContainText('100')
@@ -55,7 +59,9 @@ test('video view plays, shows who is on screen, and seeks on click', async ({ pa
   await expect(page.getByRole('heading', { name: 'this is me-songwriting-camp2-reese' })).toBeVisible()
   await expect(page.locator('.timeline__people .row')).toHaveCount(5)
   await expect(page.locator('.timeline .bar--annotation')).toHaveCount(0) // no labels are fabricated
-  await expect(page.locator('.timeline .bar--clip')).toHaveCount(0)
+  expect(await page.locator('.timeline .bar--clip').count()).toBeGreaterThan(0)
+  await page.getByRole('button', { name: /^Clip #/ }).first().click()
+  await expect(page.getByRole('complementary', { name: 'Database clip' })).toBeVisible()
   await playerReady(page)
   const bar = page.locator('.row', { has: page.getByRole('link', { name: 'Person_0045' }) }).locator('.bar--presence').nth(2)
   const title = await bar.getAttribute('title')
@@ -116,8 +122,9 @@ test('create, edit, history, reject, and export a human annotation', async ({ pa
   // Export current annotations.
   await page.goto('/')
   await page.getByRole('link', { name: 'Data view', exact: true }).click()
+  await page.getByLabel('Dataset').selectOption('annotations')
   await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Spoken Performance')
-  await page.getByText('Export').click()
+  await page.getByText('Export', { exact: true }).click()
   const download = page.waitForEvent('download')
   await page.getByRole('link', { name: 'Annotations (CSV)' }).click()
   const csv = readFileSync(await (await download).path(), 'utf8')

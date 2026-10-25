@@ -226,6 +226,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/exports/database/{dataset}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Database Export */
+        get: operations["database_export_api_exports_database__dataset__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/exports/history": {
         parameters: {
             query?: never;
@@ -331,6 +348,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/person-clips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Person Clips */
+        get: operations["person_clips_api_person_clips_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/person-clips/{clip_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Person Clip */
+        get: operations["person_clip_api_person_clips__clip_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/person-clips/{clip_id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Person Clip Summary */
+        get: operations["person_clip_summary_api_person_clips__clip_id__summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/videos": {
         parameters: {
             query?: never;
@@ -403,6 +471,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AffectScores */
+        AffectScores: {
+            /** Negative */
+            negative: number | null;
+            /** Neutral */
+            neutral: number | null;
+            /** Observation Count */
+            observation_count: number;
+            /** Positive */
+            positive: number | null;
+        };
         /** Annotation */
         Annotation: {
             /** Annotation Id */
@@ -604,6 +683,21 @@ export interface components {
             /** Video Id */
             video_id: number;
         };
+        /** PersonClip */
+        PersonClip: {
+            /** Clip Id */
+            clip_id: number;
+            /** Created At */
+            created_at: string;
+            /** End Seconds */
+            end_seconds: number;
+            /** Person Ids */
+            person_ids: string[];
+            /** Start Seconds */
+            start_seconds: number;
+            /** Video Id */
+            video_id: number;
+        };
         /** PresenceInterval */
         PresenceInterval: {
             /** Detection Count */
@@ -707,6 +801,16 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** StoredClipSummary */
+        StoredClipSummary: {
+            /** Activity Distribution */
+            activity_distribution: {
+                [key: string]: number;
+            };
+            /** Dominant Activity */
+            dominant_activity: string | null;
+            visible_affect: components["schemas"]["AffectScores"];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -749,6 +853,11 @@ export interface components {
             frame_count: number | null;
             /** Participant Count */
             participant_count: number;
+            /**
+             * Person Clip Count
+             * @default 0
+             */
+            person_clip_count: number;
             /** Title */
             title: string;
             /** Video Id */
@@ -1206,6 +1315,39 @@ export interface operations {
             };
         };
     };
+    database_export_api_exports_database__dataset__get: {
+        parameters: {
+            query: {
+                format: "csv" | "json";
+            };
+            header?: never;
+            path: {
+                dataset: "clips" | "activity" | "engagement" | "activity-history" | "engagement-history";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_history_api_exports_history_get: {
         parameters: {
             query: {
@@ -1349,6 +1491,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParticipantDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    person_clips_api_person_clips_get: {
+        parameters: {
+            query?: {
+                video_id?: number | null;
+                person_id?: string | null;
+                limit?: number | null;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonClip"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    person_clip_api_person_clips__clip_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonClip"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    person_clip_summary_api_person_clips__clip_id__summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredClipSummary"];
                 };
             };
             /** @description Validation Error */

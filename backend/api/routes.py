@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse, Response
 
-from analysis_db import catalog, exports, review
+from analysis_db import catalog, exports, review, stored_analysis
 from analysis_db.annotations import fetch_annotation, get_clip, list_annotations, list_clips
 from analysis_db.contracts import (
     UNSET, Annotation, AnnotationChanges, ImportRun, Label, LabelCategory, ParticipantDetail,
@@ -15,6 +15,7 @@ from analysis_db.contracts import (
 )
 from analysis_db.labels import list_labels
 from analysis_db.pipeline_import import list_import_runs
+from analysis_db.stored_analysis import PersonClip, StoredClipSummary
 from api.auth import Db, Staff, current_staff
 from api.schemas import CreateAnnotationRequest, EditRequest, NoteRequest, ReviewResult
 
@@ -117,6 +118,32 @@ def edit(annotation_id: int, body: EditRequest, account: Staff, connection: Db) 
 
 
 # --- Clips, labels, exports --------------------------------------------------------------
+
+@router.get("/person-clips", tags=["clips"])
+def person_clips(connection: Db, video_id: int | None = None, person_id: str | None = None,
+                 limit: Annotated[int | None, Query(ge=1, le=1000)] = None,
+                 offset: Annotated[int, Query(ge=0)] = 0) -> list[PersonClip]:
+    return stored_analysis.list_person_clips(connection, video_id=video_id, person_id=person_id,
+                                           limit=limit, offset=offset)
+
+
+@router.get("/person-clips/{clip_id}", tags=["clips"])
+def person_clip(clip_id: int, connection: Db) -> PersonClip:
+    return stored_analysis.get_person_clip(connection, clip_id)
+
+
+@router.get("/person-clips/{clip_id}/summary", tags=["clips"])
+def person_clip_summary(clip_id: int, connection: Db) -> StoredClipSummary:
+    return stored_analysis.person_clip_summary(connection, clip_id)
+
+
+@router.get("/exports/database/{dataset}", tags=["exports"])
+def database_export(dataset: Literal["clips", "activity", "engagement", "activity-history", "engagement-history"],
+                    connection: Db, format: Format) -> Response:
+    out = io.StringIO()
+    stored_analysis.export_database(connection, dataset, out, format)
+    return _attachment(out.getvalue(), dataset, format)
+
 
 @router.get("/clips", tags=["clips"])
 def clips(connection: Db, video_id: int | None = None, person_id: str | None = None,

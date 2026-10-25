@@ -1,5 +1,6 @@
 import { api } from '../api/client'
 import { ReviewQueue } from '../components/ReviewQueue'
+import { DatabaseClips } from '../components/DatabaseClips'
 import { ErrorState, Loading } from '../components/States'
 import { useResource } from '../hooks'
 
@@ -11,6 +12,7 @@ export function Review() {
   return (
     <>
       <div className="page-head"><h1>Review</h1></div>
+      <DatabaseClips videos={videos.data} />
       <ReviewQueue videos={videos.data} />
     </>
   )

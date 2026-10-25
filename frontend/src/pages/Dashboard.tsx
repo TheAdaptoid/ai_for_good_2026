@@ -24,6 +24,7 @@ export function Dashboard() {
   const list = videos.data
   const annotationTotal = sum(list, (v) => Object.values(v.annotation_counts).reduce((a, b) => a + b, 0))
   const clipTotal = sum(list, (v) => v.clip_count)
+  const storedClipTotal = sum(list, (v) => v.person_clip_count ?? 0)
 
   return (
     <>
@@ -38,11 +39,12 @@ export function Dashboard() {
           value={participants.data ? String(participants.data.length) : '…'}
           action={<button type="button" onClick={() => void navigate('/participants')}>Browse participants</button>} />
         <Stat label="Review clips" value={String(clipTotal)} />
+        <Stat label="Clips" value={String(storedClipTotal)} />
         <Stat label="Annotations" value={String(annotationTotal)} />
       </section>
 
       <LatestImport />
-      {annotationTotal === 0 && clipTotal === 0 && (
+      {annotationTotal === 0 && clipTotal === 0 && storedClipTotal === 0 && (
         <p className="notice">
           No review clips or suggested annotations yet. They appear here once the clip and
           annotation pipeline has run. Until then you can watch videos, see who is on screen, and
@@ -62,6 +64,7 @@ export function Dashboard() {
                 <th scope="col" className="num">Length</th>
                 <th scope="col" className="num">Participants</th>
                 <th scope="col" className="num">Review clips</th>
+                <th scope="col" className="num">Clips</th>
                 {REVIEW_STATUSES.map((status) => (
                   <th scope="col" className="num" key={status}>{STATUS_LABELS[status]}</th>
                 ))}
@@ -74,6 +77,7 @@ export function Dashboard() {
                   <td className="num">{formatTime(video.duration_seconds)}</td>
                   <td className="num">{video.participant_count}</td>
                   <td className="num">{video.clip_count}</td>
+                  <td className="num">{video.person_clip_count ?? 0}</td>
                   {REVIEW_STATUSES.map((status) => (
                     <td className={`num ${video.annotation_counts[status] ? '' : 'zero'}`} key={status}>
                       {video.annotation_counts[status] ?? 0}

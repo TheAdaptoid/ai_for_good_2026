@@ -57,6 +57,7 @@ function ParticipantDetail({ personId }: { personId: string }) {
     return videos
   }, [personId])
   const annotations = useResource(() => api.annotations({ person_id: personId }), [personId])
+  const storedClips = useResource(() => api.personClips({ person_id: personId }), [personId])
   const clips = useResource(() => api.clips({ person_id: personId }), [personId])
 
   if (detail.error instanceof ApiError && detail.error.status === 404) return <NotFound what="participant" />
@@ -75,6 +76,7 @@ function ParticipantDetail({ personId }: { personId: string }) {
         {annotations.data && ` · ${annotations.data.length} current annotations`}.
       </p>
       {annotations.error && <ErrorState error={annotations.error} onRetry={annotations.reload} />}
+      {storedClips.error && <ErrorState error={storedClips.error} onRetry={storedClips.reload} />}
       {clips.error && <ErrorState error={clips.error} onRetry={clips.reload} />}
       {detail.data.length === 0 && <Empty>This participant does not appear in any processed video.</Empty>}
       {detail.data.map((v) => (
@@ -95,6 +97,13 @@ function ParticipantDetail({ personId }: { personId: string }) {
                 aria-label={`On screen at ${formatTime(i.start_seconds)}`} />
             ))}
           </div>
+          {(storedClips.data ?? []).some((clip) => clip.video_id === v.video_id) && <p className="clip-chips">
+            <span className="muted small">Clips: </span>
+            {(storedClips.data ?? []).filter((clip) => clip.video_id === v.video_id).map((clip) =>
+              <Link key={clip.clip_id} className="chip" to={`/videos/${v.video_id}?t=${clip.start_seconds}&person_clip=${clip.clip_id}`}>
+                {formatTime(clip.start_seconds)}–{formatTime(clip.end_seconds)}
+              </Link>)}
+          </p>}
           {(clipsByVideo.get(v.video_id) ?? []).length > 0 && (
             <p className="clip-chips">
               <span className="muted small">Review clips: </span>

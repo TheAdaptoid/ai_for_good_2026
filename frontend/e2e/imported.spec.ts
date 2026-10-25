@@ -45,7 +45,7 @@ test('clip panel lists participants, priority, and annotations; accept keeps AI'
     await expect(clip.getByRole('link', { name: id })).toBeVisible()
   }
   await expect(clip).not.toContainText('%')
-  await expect(page.locator('.timeline .bar--clip')).toHaveCount(3)
+  await expect(page.getByRole('button', { name: /^Review clip at/ })).toHaveCount(3)
   await expect(page.locator('.timeline .bar--suggestion')).toHaveCount(5)
 
   await clip.getByRole('button', { name: /Group Performance · whole clip/ }).click()
@@ -79,7 +79,7 @@ test('editing an AI affect suggestion makes it HUMAN and survives a re-import', 
   await page.reload()
   await expect(reviewPanel(page).getByRole('heading', { name: 'Visible Neutral Affect' })).toBeVisible()
   await expect(reviewPanel(page).getByText('Source: HUMAN')).toBeVisible()
-  await expect(page.locator('.timeline .bar--clip')).toHaveCount(3)
+  await expect(page.getByRole('button', { name: /^Review clip at/ })).toHaveCount(3)
 })
 
 test('participant view shows imported clips and annotations across videos', async ({ page }) => {
@@ -87,20 +87,21 @@ test('participant view shows imported clips and annotations across videos', asyn
   await page.goto('/participants/Person_0001')
   await expect(page.getByRole('heading', { name: 'Person_0001' })).toBeVisible()
   const reese = page.locator('article.appearance', { hasText: 'this is me-songwriting-camp2-reese' })
-  await expect(reese.locator('.chip')).toHaveCount(3)
+  await expect(reese.locator('.chip[href*="&clip="]')).toHaveCount(3)
   await expect(reese.getByRole('link', { name: /Visible Neutral Affect/ })).toBeVisible()
   const final = page.locator('article.appearance', { hasText: 'THIS IS ME 2025-FINAL VIDEO-1080p' })
-  await expect(final.locator('.chip')).toHaveCount(1)
+  await expect(final.locator('.chip[href*="&clip="]')).toHaveCount(1)
   await expect(final.getByRole('link', { name: /Visible Positive Affect/ })).toBeVisible()
-  await final.locator('.chip').click()
+  await final.locator('.chip[href*="&clip="]').click()
   await expect(page.getByRole('complementary', { name: 'Review clip' })).toContainText('0.90')
 })
 
 test('exports carry the current state of imported and reviewed annotations', async ({ page }) => {
   await signIn(page)
   await page.getByRole('link', { name: 'Data view', exact: true }).click()
+  await page.getByLabel('Dataset').selectOption('annotations')
   await expect(page.getByRole('region', { name: 'CSV preview' })).toContainText('Visible Neutral Affect')
-  await page.getByText('Export').click()
+  await page.getByText('Export', { exact: true }).click()
   const download = page.waitForEvent('download')
   await page.getByRole('link', { name: 'Annotations (JSON)' }).click()
   const rows: { label_name: string; source: string; review_status: string; confidence: number | null }[] =
