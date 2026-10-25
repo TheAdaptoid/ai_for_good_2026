@@ -68,7 +68,7 @@ describe('dashboard', () => {
     expect(screen.getByText('Human Annotations').previousSibling).toHaveTextContent('0')
     expect(within(screen.getByRole('region', { name: 'Totals' })).queryByText('Review clips')).not.toBeInTheDocument()
     expect(screen.queryByText('Export', { exact: true })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Data view' })).toHaveAttribute('href', '/data')
+    expect(screen.getByRole('link', { name: /^Data view$/i })).toHaveAttribute('href', '/data')
     expect(screen.queryByRole('region', { name: 'Review queue' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Browse participants' })).not.toBeInTheDocument()
   })

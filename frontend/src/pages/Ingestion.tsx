@@ -1,7 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { api, type VideoProgress } from '../api/client'
 import { Empty, ErrorState, Loading } from '../components/States'
-import { useResource } from '../hooks'
 
 const STAGES = [
   { key: 'activity', label: 'Activity', unit: 'frames', hint: 'Frames with a face that have an activity result.' },
@@ -10,7 +9,13 @@ const STAGES = [
 ] as const
 
 type StageKey = (typeof STAGES)[number]['key']
-const REFRESH_MS = 15_000
+const REFRESH_MS = 3_000
+
+interface ProgressSnapshot {
+  data?: VideoProgress[]
+  error?: Error
+  refreshedAt?: Date
+}
 
 function stage(video: VideoProgress, key: StageKey) {
   return video.stages.find((s) => s.stage === key) ?? { stage: key, done: 0, total: 0 }
@@ -34,14 +39,32 @@ function Bar({ done, total, label }: { done: number; total: number; label: strin
 }
 
 export function Ingestion() {
-  const progress = useResource(api.processing, [])
-  const { reload } = progress
+  const [progress, setProgress] = useState<ProgressSnapshot>({})
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
-    const timer = window.setInterval(reload, REFRESH_MS) // the pipeline runs outside the app; keep the page current
-    return () => window.clearInterval(timer)
-  }, [reload])
+    let active = true
+    let timer: number | undefined
+    async function refresh() {
+      try {
+        const data = await api.processing()
+        if (active) setProgress({ data, refreshedAt: new Date() })
+      } catch (error) {
+        if (active) setProgress((previous) => ({ ...previous,
+          error: error instanceof Error ? error : new Error('Could not refresh processing progress'),
+        }))
+      } finally {
+        // Schedule only after completion, so a slow query cannot create overlapping polls.
+        if (active) timer = window.setTimeout(refresh, REFRESH_MS)
+      }
+    }
+    void refresh()
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [attempt])
 
-  if (progress.error && !progress.data) return <ErrorState error={progress.error} onRetry={progress.reload} />
+  if (progress.error && !progress.data) return <ErrorState error={progress.error} onRetry={() => setAttempt((value) => value + 1)} />
   if (!progress.data) return <Loading what="processing progress" />
   const videos = progress.data
   const totals = STAGES.map(({ key }) => videos.reduce((sum, v) => {
@@ -54,9 +77,13 @@ export function Ingestion() {
       <div className="page-head">
         <div>
           <h1>Data Ingestion</h1>
-          <p className="muted">Processing progress for every video, read from the analysis database. Updates every 15 seconds.</p>
+          <p className="muted">Processing progress for every video, read from the analysis database. Updates every 3 seconds.</p>
+          {progress.refreshedAt && <p className="muted small">Last refreshed{' '}
+            <time dateTime={progress.refreshedAt.toISOString()}>{progress.refreshedAt.toLocaleTimeString()}</time>
+          </p>}
         </div>
       </div>
+      {progress.error && <p className="notice" role="status">Refresh failed. Showing the last received counts and retrying automatically.</p>}
       {videos.length === 0 ? <Empty>No videos in the database yet.</Empty> : <>
         <section className="stage-cards" aria-label="Overall progress">
           {STAGES.map(({ key, label, unit, hint }, i) => {
